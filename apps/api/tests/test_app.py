@@ -1,6 +1,10 @@
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
+from app.db import get_db
+from app.exceptions import DatabaseUnavailableError
 from app.main import app
 
 
@@ -25,6 +29,41 @@ def test_versioned_status_route() -> None:
     payload = response.json()
     assert payload["status"] == "ok"
     assert payload["api_version"] == "v1"
+
+
+def test_database_readiness_endpoint_with_isolated_sqlite() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Session = sessionmaker(bind=engine)
+
+    def override_get_db():
+        with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        response = client.get("/api/v1/health/database")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "database": "sqlite"}
+
+
+def test_database_readiness_endpoint_failure_is_structured() -> None:
+    def unavailable_database():
+        raise DatabaseUnavailableError
+        yield
+
+    app.dependency_overrides[get_db] = unavailable_database
+    try:
+        response = client.get("/api/v1/health/database")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": {"code": "database_unavailable", "message": "Database is unavailable"}
+    }
 
 
 def test_config_loading() -> None:

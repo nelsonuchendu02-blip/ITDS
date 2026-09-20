@@ -55,7 +55,7 @@ pytestmark = pytest.mark.postgresql
 @pytest.fixture
 def postgresql_database(monkeypatch: pytest.MonkeyPatch):
     if POSTGRESQL_URL is None:
-        pytest.skip("Set TEST_DATABASE_URL or DATABASE_URL to an explicit PostgreSQL URL")
+        pytest.skip("Set TEST_DATABASE_URL to an explicit isolated PostgreSQL URL")
 
     # Alembic is environment-driven and only accepts DATABASE_URL. Prefer the
     # test-specific variable without ever falling back to an implicit database.

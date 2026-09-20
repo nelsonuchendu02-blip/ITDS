@@ -8,6 +8,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .config import Settings, get_settings
+from .exceptions import DatabaseUnavailableError
 
 
 @lru_cache(maxsize=1)
@@ -31,7 +32,10 @@ def get_session_factory(settings: Settings | None = None) -> sessionmaker[Sessio
 
 def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency that always closes the session."""
-    session = get_session_factory()()
+    try:
+        session = get_session_factory()()
+    except ValueError as exc:
+        raise DatabaseUnavailableError from exc
     try:
         yield session
     finally:

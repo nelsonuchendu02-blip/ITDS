@@ -1,11 +1,14 @@
 import uuid
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
+from app.db import get_db
+from app.exceptions import PersistenceError
 from app.models import (
     Base,
     Device,
@@ -28,6 +31,8 @@ from app.models import (
     User,
     UserStatus,
 )
+from app.schemas import DeviceCreate, OrganizationCreate
+from app.services import DeviceService, OrganizationService
 
 
 def test_sqlite_schema_and_relationships() -> None:
@@ -151,3 +156,66 @@ def test_scoped_unique_constraints_are_enforced() -> None:
         )
         with pytest.raises(IntegrityError):
             session.commit()
+
+
+def test_database_dependency_closes_isolated_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = MagicMock()
+    monkeypatch.setattr("app.db.get_session_factory", lambda: lambda: session)
+
+    dependency = get_db()
+    assert next(dependency) is session
+    dependency.close()
+    session.close.assert_called_once_with()
+
+
+def test_organization_and_device_services_persist_with_scope() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    organization_service = OrganizationService()
+    device_service = DeviceService()
+
+    with Session() as session:
+        organization = organization_service.create_organization(session, name="Example")
+        other_organization = organization_service.create_organization(session, name="Other")
+        device = device_service.create_device(
+            session,
+            organization_id=organization.id,
+            hostname="pc-01",
+            device_type="workstation",
+            operating_system="Windows",
+        )
+        other_device = device_service.create_device(
+            session,
+            organization_id=other_organization.id,
+            hostname="pc-01",
+            device_type="workstation",
+            operating_system="Windows",
+        )
+
+        assert organization_service.get_organization(session, organization.id) is organization
+        assert organization_service.list_organizations(session) == [organization, other_organization]
+        assert device_service.get_device(session, device.id, organization_id=organization.id) is device
+        assert device_service.get_device(session, other_device.id, organization_id=organization.id) is None
+        assert device_service.list_devices(session, organization_id=organization.id) == [device]
+
+        with pytest.raises(PersistenceError):
+            device_service.create_device(
+                session,
+                organization_id=organization.id,
+                hostname="pc-01",
+                device_type="server",
+                operating_system="Linux",
+            )
+
+
+def test_api_schemas_reject_empty_required_values() -> None:
+    with pytest.raises(ValueError):
+        OrganizationCreate(name="")
+    with pytest.raises(ValueError):
+        DeviceCreate(
+            organization_id=uuid.uuid4(),
+            hostname="",
+            device_type="workstation",
+            operating_system="Windows",
+        )
