@@ -154,6 +154,7 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
         )
         diagnostic_result = DiagnosticResult(
             diagnostic_run=diagnostic_run,
+            title="Network reachability",
             check_identifier="network.reachability",
             status=DiagnosticResultStatus.PASS,
             severity=DiagnosticResultSeverity.INFO,

@@ -6,7 +6,7 @@ from .domain import (
     Incident, Organization, Recommendation, RepairAction, Role, User, UserRole,
 )
 from .enums import (
-    DeviceStatus, DiagnosticResultSeverity, DiagnosticResultStatus,
+    DeviceStatus, DiagnosticCheckType, DiagnosticResultSeverity, DiagnosticResultStatus,
     DiagnosticRunStatus, DiscoveryJobStatus, DiscoveryResultStatus, EscalationStatus, IncidentPriority, IncidentSeverity,
     IncidentStatus, OrganizationStatus, RecommendationPriority, RecommendationStatus,
     ReconciliationStatus, RepairActionStatus, UserStatus,
@@ -20,4 +20,5 @@ __all__ = [
     "OrganizationStatus", "RecommendationPriority", "RecommendationStatus",
     "RepairActionStatus", "UserStatus", "DiagnosticResultStatus",
     "DiagnosticResultSeverity", "DiscoveryJobStatus", "DiscoveryResultStatus", "ReconciliationStatus",
+    "DiagnosticCheckType",
 ]

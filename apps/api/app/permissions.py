@@ -16,6 +16,9 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "discovery:read",
             "discovery:run",
             "discovery:manage",
+            "diagnostics:read",
+            "diagnostics:run",
+            "diagnostics:manage",
             "roles:read",
             "roles:assign",
             "audit:read",
@@ -24,7 +27,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "it_support": frozenset(
         {"users:read", "devices:read", "devices:write", "discovery:read", "discovery:run", "audit:read"}
     ),
-    "technician": frozenset({"devices:read", "devices:write", "diagnostics:run"}),
+    "technician": frozenset({"devices:read", "devices:write", "diagnostics:read", "diagnostics:run"}),
     "viewer": frozenset({"users:read", "devices:read"}),
 }
 ORG_CROSS_SCOPE_PERMISSION = "organizations:cross_scope"

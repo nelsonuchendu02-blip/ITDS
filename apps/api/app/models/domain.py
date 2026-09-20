@@ -1,8 +1,8 @@
 """SQLAlchemy domain models for the Phase 1A persistence foundation."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, uuid_pk
@@ -11,6 +11,7 @@ from .enums import (
     DiagnosticResultSeverity,
     DiagnosticResultStatus,
     DiagnosticRunStatus,
+    DiagnosticCheckType,
     DiscoveryJobStatus,
     DiscoveryResultStatus,
     EscalationStatus,
@@ -159,7 +160,7 @@ class Incident(TimestampMixin, Base):
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     device_id: Mapped = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"), nullable=True, index=True)
     assigned_user_id: Mapped = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default="Diagnostic result")
     description: Mapped[str | None] = mapped_column(Text)
     severity: Mapped[IncidentSeverity] = mapped_column(
         Enum(IncidentSeverity, name="incident_severity"), default=IncidentSeverity.MEDIUM, nullable=False, index=True
@@ -185,11 +186,15 @@ class DiagnosticRun(TimestampMixin, Base):
     device_id: Mapped = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True)
     incident_id: Mapped = mapped_column(ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True, index=True)
     diagnostic_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False, default="simulated")
+    created_by_user_id: Mapped = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     status: Mapped[DiagnosticRunStatus] = mapped_column(
         Enum(DiagnosticRunStatus, name="diagnostic_run_status"), default=DiagnosticRunStatus.PENDING, nullable=False, index=True
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(100))
     organization: Mapped[Organization] = relationship(back_populates="diagnostic_runs")
     device: Mapped[Device] = relationship()
     incident: Mapped[Incident | None] = relationship()
@@ -199,7 +204,13 @@ class DiagnosticResult(TimestampMixin, Base):
     __tablename__ = "diagnostic_results"
     id: Mapped = uuid_pk()
     diagnostic_run_id: Mapped = mapped_column(ForeignKey("diagnostic_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True)
     check_identifier: Mapped[str] = mapped_column(String(200), nullable=False)
+    check_type: Mapped[DiagnosticCheckType] = mapped_column(
+        Enum(DiagnosticCheckType, name="diagnostic_check_type"), nullable=False,
+        default=DiagnosticCheckType.CONNECTIVITY,
+    )
     status: Mapped[DiagnosticResultStatus] = mapped_column(
         Enum(DiagnosticResultStatus, name="diagnostic_result_status"), nullable=False
     )
@@ -210,7 +221,22 @@ class DiagnosticResult(TimestampMixin, Base):
     expected_value: Mapped[dict | None] = mapped_column(JSON)
     message: Mapped[str | None] = mapped_column(Text)
     evidence: Mapped[str | None] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text)
+    recommendation: Mapped[str | None] = mapped_column(Text)
+    result_metadata: Mapped[dict | None] = mapped_column(JSON)
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
     diagnostic_run: Mapped[DiagnosticRun] = relationship()
+
+
+@event.listens_for(DiagnosticResult, "before_insert")
+def _scope_diagnostic_result(_mapper, _connection, target: DiagnosticResult) -> None:
+    """Keep legacy ORM construction compatible while enforcing result scope."""
+    if target.diagnostic_run is not None:
+        target.organization_id = target.organization_id or target.diagnostic_run.organization_id
+        target.device_id = target.device_id or target.diagnostic_run.device_id
 
 
 class Recommendation(TimestampMixin, Base):

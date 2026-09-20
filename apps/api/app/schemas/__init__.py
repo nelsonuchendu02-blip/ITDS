@@ -16,6 +16,10 @@ from .discovery import (
     DiscoveryResultPage,
     DiscoveryResultRead,
 )
+from .diagnostics import (
+    DiagnosticPageMeta, DiagnosticResultPage, DiagnosticResultRead, DiagnosticRunCreate,
+    DiagnosticRunPage, DiagnosticRunRead,
+)
 from .organization import OrganizationCreate, OrganizationRead
 from .auth import TokenRequest, TokenResponse
 from .user import CurrentUserRead, UserRead
@@ -48,6 +52,8 @@ __all__ = [
     "DiscoveryPageMeta",
     "DiscoveryResultPage",
     "DiscoveryResultRead",
+    "DiagnosticPageMeta", "DiagnosticResultPage", "DiagnosticResultRead",
+    "DiagnosticRunCreate", "DiagnosticRunPage", "DiagnosticRunRead",
     "OrganizationCreate",
     "OrganizationRead",
     "TokenRequest",

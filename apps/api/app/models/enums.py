@@ -63,6 +63,14 @@ class DiagnosticRunStatus(StrEnum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class DiagnosticCheckType(StrEnum):
+    CONNECTIVITY = "connectivity"
+    CONFIGURATION = "configuration"
+    SECURITY = "security"
+    PERFORMANCE = "performance"
 
 
 class DiagnosticResultStatus(StrEnum):

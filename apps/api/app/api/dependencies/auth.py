@@ -85,3 +85,9 @@ def get_discovery_service():
     from ...services.discovery import DiscoveryService
 
     return DiscoveryService()
+
+
+def get_diagnostic_service():
+    from ...services.diagnostics import DiagnosticService
+
+    return DiagnosticService()

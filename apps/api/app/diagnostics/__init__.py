@@ -1,0 +1,1 @@
+"""Safe, deterministic diagnostic providers."""
