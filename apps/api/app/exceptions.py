@@ -9,6 +9,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 class PersistenceError(Exception):
     """Safe application-level representation of an expected persistence failure."""
 
+    def __init__(self, message: str, status_code: int = 409) -> None:
+        self.message = message
+        self.status_code = status_code
+        super().__init__(message)
+
 
 class DatabaseUnavailableError(Exception):
     """Raised when a request cannot establish the configured database session."""
@@ -65,9 +70,17 @@ async def security_error_handler(_: Request, exc: SecurityError) -> JSONResponse
     )
 
 
+async def persistence_error_handler(_: Request, exc: PersistenceError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": "persistence_error", "message": exc.message}},
+    )
+
+
 def register_exception_handlers(app: Any) -> None:
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(FastAPIHTTPException, http_exception_handler)
     app.add_exception_handler(DatabaseUnavailableError, database_unavailable_handler)
     app.add_exception_handler(SecurityError, security_error_handler)
+    app.add_exception_handler(PersistenceError, persistence_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db import get_db
 from app.exceptions import PersistenceError
+from app.exceptions import SecurityError
 from app.models import (
     Base,
     Device,
@@ -32,7 +33,7 @@ from app.models import (
     UserStatus,
 )
 from app.schemas import DeviceCreate, OrganizationCreate
-from app.services import DeviceService, OrganizationService
+from app.services import DeviceService, ManagementService, OrganizationService
 
 
 def test_sqlite_schema_and_relationships() -> None:
@@ -219,3 +220,56 @@ def test_api_schemas_reject_empty_required_values() -> None:
             device_type="workstation",
             operating_system="Windows",
         )
+
+
+def test_management_service_is_organization_scoped_and_audited() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    service = ManagementService()
+
+    with Session() as session:
+        organization = Organization(name="Managed")
+        other_organization = Organization(name="Other")
+        actor = User(email="admin@managed.test", display_name="Admin", organization=organization)
+        admin_role = Role(name="organization_admin", organization=organization)
+        actor.roles.append(admin_role)
+        session.add_all([organization, other_organization, actor, admin_role])
+        session.commit()
+
+        created = service.create_user(
+            session,
+            organization_id=organization.id,
+            email="user@managed.test",
+            display_name="Managed User",
+            password="long-enough-password",
+            actor=actor,
+        )
+        assert created.organization_id == organization.id
+        assert created.password_hash is not None
+        assert service.get_user(session, other_organization.id, created.id) is None
+        events, total = service.list_audit_events(
+            session, organization.id, offset=0, limit=20, event_type="user_created"
+        )
+        assert total == 1
+        assert events[0].event_metadata["target_user_id"] == str(created.id)
+
+
+def test_management_service_rejects_platform_role_assignment() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    service = ManagementService()
+
+    with Session() as session:
+        organization = Organization(name="Managed")
+        actor = User(email="admin@managed.test", display_name="Admin", organization=organization)
+        target = User(email="user@managed.test", display_name="User", organization=organization)
+        admin_role = Role(name="organization_admin", organization=organization)
+        platform_role = Role(name="platform_admin", organization=organization)
+        actor.roles.append(admin_role)
+        session.add_all([organization, actor, target, admin_role, platform_role])
+        session.commit()
+
+        with pytest.raises(SecurityError):
+            service.assign_role(session, user=target, role=platform_role, actor=actor)

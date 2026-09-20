@@ -17,3 +17,8 @@ class RoleRepository:
         return session.scalars(
             select(Role).where(Role.organization_id == organization_id).order_by(Role.name)
         ).all()
+
+    def get_by_id(self, session: Session, organization_id: UUID, role_id: UUID) -> Role | None:
+        return session.scalar(
+            select(Role).where(Role.organization_id == organization_id, Role.id == role_id)
+        )

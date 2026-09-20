@@ -2,7 +2,19 @@ from collections.abc import Iterable
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     "platform_admin": frozenset({"*"}),
-    "organization_admin": frozenset({"users:read", "users:write", "users:manage", "audit:read"}),
+    "organization_admin": frozenset(
+        {
+            "organizations:read",
+            "organizations:write",
+            "organizations:manage",
+            "users:read",
+            "users:write",
+            "users:manage",
+            "roles:read",
+            "roles:assign",
+            "audit:read",
+        }
+    ),
     "it_support": frozenset({"users:read", "devices:read", "devices:write", "audit:read"}),
     "technician": frozenset({"devices:read", "devices:write", "diagnostics:run"}),
     "viewer": frozenset({"users:read", "devices:read"}),

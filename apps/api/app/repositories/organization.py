@@ -15,8 +15,12 @@ class OrganizationRepository:
         session.flush()
         return organization
 
+    def list(self, session: Session) -> Sequence[Organization]:
+        return session.scalars(select(Organization).order_by(Organization.name)).all()
+
     def get_by_id(self, session: Session, organization_id: UUID) -> Organization | None:
         return session.get(Organization, organization_id)
 
-    def list(self, session: Session) -> Sequence[Organization]:
-        return session.scalars(select(Organization).order_by(Organization.name)).all()
+    def update_name(self, organization: Organization, name: str) -> Organization:
+        organization.name = name
+        return organization

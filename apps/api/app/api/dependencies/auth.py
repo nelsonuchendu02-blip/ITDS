@@ -67,3 +67,9 @@ def ensure_organization_scope(user: User, organization_id: UUID) -> None:
     if has_cross_organization_permission(user_permissions(user)):
         return
     raise SecurityError("permission_denied", "Permission denied", 403)
+
+
+def get_management_service():
+    from ...services.management import ManagementService
+
+    return ManagementService()

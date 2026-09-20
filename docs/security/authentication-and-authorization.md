@@ -34,7 +34,7 @@ baseline role receives.
 The baseline role names are:
 
 - `platform_admin`: all permissions
-- `organization_admin`: user and audit administration
+- `organization_admin`: organization, user, role, and audit administration
 - `it_support`: user read, device read/write, and audit read
 - `technician`: device read/write and diagnostics execution
 - `viewer`: user and device read
@@ -42,6 +42,23 @@ The baseline role names are:
 Reusable `require_role` and `require_permission` dependencies enforce access
 before protected service operations. No domain CRUD endpoints are exposed in
 this phase.
+
+## Phase 1D management API
+
+The protected management routes provide organization-scoped administration:
+
+- `GET /api/v1/organizations/me` and scoped organization read/update
+- paginated user list, read, create, update, activate, and deactivate operations
+- role listing, assignment, and removal for users in the current organization
+- paginated audit-event read access
+
+There is no public registration route. Administrative user creation hashes the
+password in the service layer and never returns the hash. User, role, and audit
+queries include the authenticated organization predicate. Organization paths
+may only cross that boundary when a caller has the explicit
+`organizations:cross_scope` permission; the `platform_admin` wildcard does not
+implicitly provide it. Assignment of the `platform_admin` role is not exposed
+through the organization-scoped management API.
 
 ## Bootstrap and audit
 

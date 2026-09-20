@@ -15,13 +15,16 @@ def record_security_event(
     action: str,
     result: str,
     metadata: dict | None = None,
+    resource_type: str = "authentication",
+    resource_id: str | None = None,
 ) -> None:
     session.add(
         AuditEvent(
             organization_id=organization_id,
             actor_user_id=actor_user_id,
             event_type=event_type,
-            resource_type="authentication",
+            resource_type=resource_type,
+            resource_id=resource_id,
             action=action,
             result=result,
             event_metadata=metadata,

@@ -14,6 +14,8 @@ def user_permissions(user: User) -> set[str]:
 
 def has_permission(user: User, permission: str) -> bool:
     permissions = user_permissions(user)
+    if permission == "organizations:cross_scope":
+        return permission in permissions
     return "*" in permissions or permission in permissions
 
 
