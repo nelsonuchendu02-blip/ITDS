@@ -5,7 +5,7 @@
 - API layer: FastAPI service that exposes versioned endpoints and health checks.
 - Web client: React application responsible for displaying backend status and operational state.
 - Agent layer: Python-based endpoint architecture reserved for future Windows collectors and diagnostics.
-- Database layer: PostgreSQL-oriented migration and seed structure for future domain modeling.
+- Database layer: SQLAlchemy ORM models and Alembic migrations targeting PostgreSQL.
 - Automation layer: PowerShell guidance for future safe automation under explicit admin checks.
 
 ## Responsibilities
@@ -35,7 +35,8 @@ PowerShell guidance is intentionally limited to conventions, parameter validatio
 - Web client calls API over HTTP.
 - API reads configuration from environment variables.
 - Windows agent modules rely on explicit interfaces and future communication channels.
-- Database access remains intentionally out of scope for Phase 0.
+- Database configuration is environment-driven and sessions are created through
+  explicit lifecycle helpers; importing the API does not connect to PostgreSQL.
 
 ## Future endpoint-agent architecture
 
@@ -49,7 +50,8 @@ The future agent will likely be organized as:
 - communication
 - logging
 
-Phase 0 defines the package boundaries but not any live operational behavior.
+Phase 1A defines the persistence boundaries but not CRUD, authentication,
+monitoring, diagnostics, or remediation behavior.
 
 ## Future real-time architecture
 

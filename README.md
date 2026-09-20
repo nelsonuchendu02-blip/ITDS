@@ -36,7 +36,7 @@ The repository separates responsibilities across application domains:
 
 - Frontend: React, TypeScript, Vite
 - Backend: Python, FastAPI
-- Database: PostgreSQL planning only for Phase 0
+- Database: SQLAlchemy ORM and Alembic migrations targeting PostgreSQL
 - Endpoint automation: Python agent + PowerShell conventions
 - CI/CD: GitHub Actions
 - Security: environment-based settings and structured logging
@@ -156,13 +156,27 @@ cd apps/web && npm install && npm run build
 
 ## Current development phase
 
-Phase 0: engineering foundation only.
+Phase 1A: persistence foundation. The ORM models, session lifecycle, and initial
+Alembic migration are present; application CRUD, authentication, monitoring,
+diagnostics, and remediation remain out of scope.
+
+### Database validation
+
+SQLite is used by the fast unit tests (`pytest apps/api/tests -m
+"not postgresql"`), so they run without external services. PostgreSQL
+integration tests are a separate path and are skipped unless
+`TEST_DATABASE_URL` explicitly contains a PostgreSQL URL; they never silently
+connect to a local or development database. Run them with
+`pytest apps/api/tests -m postgresql` after providing an isolated test
+database. The integration path exercises the Alembic upgrade/downgrade
+lifecycle, relationships, constraints, UUIDs, timestamps, JSON, and foreign
+keys.
 
 ## Known limitations
 
 - No real-time monitoring implementation
 - No device discovery or endpoint automation
-- No production PostgreSQL schema beyond the planned foundation
+- No CRUD, authentication, monitoring, diagnostics, or remediation workflows
 - No deployment infrastructure
 - No real user authentication or RBAC beyond baseline security documentation
 

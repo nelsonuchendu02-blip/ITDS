@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_prefix: str = "/api"
     cors_allowed_origins: str = "http://localhost:5173"
-    database_url: str = "postgresql://localhost:5432/itds"
+    database_url: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

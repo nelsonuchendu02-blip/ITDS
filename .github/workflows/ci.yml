@@ -8,6 +8,23 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: itds_ci
+          POSTGRES_USER: itds_ci
+          POSTGRES_PASSWORD: itds_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U itds_ci -d itds_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=12
+    env:
+      DATABASE_URL: postgresql+psycopg://itds_ci:itds_ci_password@localhost:5432/itds_ci
+      TEST_DATABASE_URL: postgresql+psycopg://itds_ci:itds_ci_password@localhost:5432/itds_ci
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -22,8 +39,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r apps/api/requirements.txt
 
-      - name: Run backend tests
-        run: pytest apps/api/tests
+      - name: Run SQLite fast tests
+        run: pytest apps/api/tests -m "not postgresql"
+
+      - name: Run PostgreSQL integration tests
+        run: pytest apps/api/tests -m postgresql
+
+      - name: Validate PostgreSQL migration lifecycle
+        run: |
+          alembic upgrade head
+          alembic downgrade base
 
   frontend:
     runs-on: ubuntu-latest
@@ -47,4 +72,6 @@ jobs:
       - name: Build frontend
         run: |
           cd apps/web
+          npm run check
           npm run build
+          npm audit

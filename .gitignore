@@ -28,6 +28,7 @@ Thumbs.db
 # Build artifacts
 coverage/
 *.sqlite3
+*.db
 *.tsbuildinfo
 apps/web/vite.config.js
 apps/web/vite.config.d.ts
