@@ -31,7 +31,14 @@ class Organization(TimestampMixin, Base):
         Enum(OrganizationStatus, name="organization_status"), default=OrganizationStatus.ACTIVE, nullable=False, index=True
     )
     users: Mapped[list["User"]] = relationship(back_populates="organization")
+    roles: Mapped[list["Role"]] = relationship(back_populates="organization")
     devices: Mapped[list["Device"]] = relationship(back_populates="organization")
+    incidents: Mapped[list["Incident"]] = relationship(back_populates="organization")
+    diagnostic_runs: Mapped[list["DiagnosticRun"]] = relationship(back_populates="organization")
+    recommendations: Mapped[list["Recommendation"]] = relationship(back_populates="organization")
+    repair_actions: Mapped[list["RepairAction"]] = relationship(back_populates="organization")
+    escalations: Mapped[list["Escalation"]] = relationship(back_populates="organization")
+    audit_events: Mapped[list["AuditEvent"]] = relationship(back_populates="organization")
 
 
 class Role(Base):
@@ -41,7 +48,7 @@ class Role(Base):
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
-    organization: Mapped[Organization] = relationship()
+    organization: Mapped[Organization] = relationship(back_populates="roles")
     users: Mapped[list["User"]] = relationship(secondary="user_roles", back_populates="roles")
 
 
@@ -107,6 +114,7 @@ class Incident(TimestampMixin, Base):
     )
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    organization: Mapped[Organization] = relationship(back_populates="incidents")
     device: Mapped[Device | None] = relationship()
     assigned_user: Mapped[User | None] = relationship()
 
@@ -124,6 +132,7 @@ class DiagnosticRun(TimestampMixin, Base):
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    organization: Mapped[Organization] = relationship(back_populates="diagnostic_runs")
     device: Mapped[Device] = relationship()
     incident: Mapped[Incident | None] = relationship()
 
@@ -161,6 +170,7 @@ class Recommendation(TimestampMixin, Base):
     status: Mapped[RecommendationStatus] = mapped_column(
         Enum(RecommendationStatus, name="recommendation_status"), default=RecommendationStatus.PROPOSED, nullable=False
     )
+    organization: Mapped[Organization] = relationship(back_populates="recommendations")
     device: Mapped[Device | None] = relationship()
     incident: Mapped[Incident | None] = relationship()
     diagnostic_result: Mapped[DiagnosticResult | None] = relationship()
@@ -183,6 +193,7 @@ class RepairAction(TimestampMixin, Base):
     executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verification_status: Mapped[str | None] = mapped_column(String(50))
     verification_result: Mapped[dict | None] = mapped_column(JSON)
+    organization: Mapped[Organization] = relationship(back_populates="repair_actions")
     device: Mapped[Device] = relationship()
     incident: Mapped[Incident | None] = relationship()
     recommendation: Mapped[Recommendation | None] = relationship()
@@ -201,6 +212,7 @@ class Escalation(TimestampMixin, Base):
     assigned_to: Mapped[str | None] = mapped_column(String(255))
     escalated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    organization: Mapped[Organization] = relationship(back_populates="escalations")
     incident: Mapped[Incident] = relationship()
 
 
@@ -220,3 +232,4 @@ class AuditEvent(Base):
     result: Mapped[str] = mapped_column(String(50), nullable=False)
     event_metadata: Mapped[dict | None] = mapped_column("metadata", JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    organization: Mapped[Organization | None] = relationship(back_populates="audit_events")
