@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
@@ -99,7 +99,19 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
         "discovery_jobs",
         "discovery_results",
     }
-    assert expected_tables.issubset(set(inspect(engine).get_table_names()))
+    inspector = inspect(engine)
+    assert expected_tables.issubset(set(inspector.get_table_names()))
+    discovery_result_columns = {
+        column["name"] for column in inspector.get_columns("discovery_results")
+    }
+    assert {
+        "id",
+        "discovery_job_id",
+        "organization_id",
+        "target_ip",
+        "created_at",
+        "updated_at",
+    }.issubset(discovery_result_columns)
 
     Session = sessionmaker(bind=engine)
     organization_id = uuid.uuid4()
@@ -234,6 +246,9 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
         session.add(audit_event)
         session.commit()
         session.refresh(audit_event)
+        persisted_discovery_result = session.scalar(
+            select(DiscoveryResult).where(DiscoveryResult.id == discovery_result.id)
+        )
 
         assert isinstance(organization.id, uuid.UUID)
         assert organization.created_at.tzinfo is not None
@@ -245,6 +260,9 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
         assert escalation.incident is incident
         assert discovery_result.job is discovery_job
         assert discovery_result.matched_device_id == device.id
+        assert persisted_discovery_result is not None
+        assert persisted_discovery_result.created_at.tzinfo is not None
+        assert persisted_discovery_result.updated_at.tzinfo is not None
         assert audit_event.event_metadata == {"source": "pytest", "checks": ["uuid", "json", "fk"]}
 
         session.add(User(email="admin@integration.test", display_name="Duplicate", organization=organization))
