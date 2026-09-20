@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, uuid_pk
@@ -64,6 +64,7 @@ class User(TimestampMixin, Base):
     id: Mapped = uuid_pk()
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(320), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     status: Mapped[UserStatus] = mapped_column(
         Enum(UserStatus, name="user_status"), default=UserStatus.ACTIVE, nullable=False, index=True
@@ -233,3 +234,11 @@ class AuditEvent(Base):
     event_metadata: Mapped[dict | None] = mapped_column("metadata", JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     organization: Mapped[Organization | None] = relationship(back_populates="audit_events")
+
+
+class BootstrapState(Base):
+    __tablename__ = "bootstrap_state"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="RESTRICT"), nullable=False)
+    user_id: Mapped = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)

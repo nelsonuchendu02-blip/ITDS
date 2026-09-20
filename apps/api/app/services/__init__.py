@@ -2,5 +2,6 @@
 
 from .device import DeviceService
 from .organization import OrganizationService
+from .auth import AuthenticationService
 
-__all__ = ["DeviceService", "OrganizationService"]
+__all__ = ["AuthenticationService", "DeviceService", "OrganizationService"]

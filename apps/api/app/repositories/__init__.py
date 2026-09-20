@@ -2,5 +2,7 @@
 
 from .device import DeviceRepository
 from .organization import OrganizationRepository
+from .role import RoleRepository
+from .user import UserRepository
 
-__all__ = ["DeviceRepository", "OrganizationRepository"]
+__all__ = ["DeviceRepository", "OrganizationRepository", "RoleRepository", "UserRepository"]

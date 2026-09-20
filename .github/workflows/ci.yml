@@ -49,6 +49,7 @@ jobs:
         run: |
           alembic upgrade head
           alembic downgrade base
+          alembic upgrade head
 
   frontend:
     runs-on: ubuntu-latest

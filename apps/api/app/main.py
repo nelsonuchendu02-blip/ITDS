@@ -4,13 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.v1.router import router as api_router
-from .config import get_settings
+from .config import get_settings, validate_authentication_configuration
 from .exceptions import register_exception_handlers
 from .logging import configure_logging
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    validate_authentication_configuration(settings)
     configure_logging()
     yield
 

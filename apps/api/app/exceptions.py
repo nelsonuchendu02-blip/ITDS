@@ -14,6 +14,16 @@ class DatabaseUnavailableError(Exception):
     """Raised when a request cannot establish the configured database session."""
 
 
+class SecurityError(Exception):
+    """Controlled authentication or authorization failure."""
+
+    def __init__(self, code: str, message: str, status_code: int) -> None:
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+        super().__init__(message)
+
+
 async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
     """Return a structured error payload for client errors."""
     return JSONResponse(
@@ -47,8 +57,17 @@ async def database_unavailable_handler(_: Request, __: DatabaseUnavailableError)
     )
 
 
+async def security_error_handler(_: Request, exc: SecurityError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.code, "message": exc.message}},
+        headers={"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None,
+    )
+
+
 def register_exception_handlers(app: Any) -> None:
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(FastAPIHTTPException, http_exception_handler)
     app.add_exception_handler(DatabaseUnavailableError, database_unavailable_handler)
+    app.add_exception_handler(SecurityError, security_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
