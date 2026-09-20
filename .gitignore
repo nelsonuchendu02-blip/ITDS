@@ -29,6 +29,8 @@ Thumbs.db
 coverage/
 *.sqlite3
 *.tsbuildinfo
+apps/web/vite.config.js
+apps/web/vite.config.d.ts
 
 # Temporary
 tmp/
