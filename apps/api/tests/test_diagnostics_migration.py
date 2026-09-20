@@ -84,3 +84,12 @@ def test_phase_1g_migration_backfills_existing_diagnostic_rows(
         engine.dispose()
     finally:
         get_settings.cache_clear()
+
+
+def test_phase_1g_migration_backfill_qualifies_result_timestamp() -> None:
+    migration = Path(__file__).resolve().parents[3] / (
+        "database/migrations/versions/"
+        "9e4f7a1c2b30_add_diagnostics_foundation.py"
+    )
+    source = migration.read_text(encoding="utf-8")
+    assert "COALESCE(diagnostic_results.created_at, CURRENT_TIMESTAMP)" in source

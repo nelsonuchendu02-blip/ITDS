@@ -74,14 +74,14 @@ def upgrade() -> None:
         "UPDATE diagnostic_results SET organization_id = diagnostic_runs.organization_id, "
         "device_id = diagnostic_runs.device_id, "
         "title = COALESCE(NULLIF(check_identifier, ''), 'Diagnostic result'), "
-        "checked_at = COALESCE(created_at, CURRENT_TIMESTAMP) "
+        "checked_at = COALESCE(diagnostic_results.created_at, CURRENT_TIMESTAMP) "
         "FROM diagnostic_runs WHERE diagnostic_results.diagnostic_run_id = diagnostic_runs.id"
         if bind.dialect.name == "postgresql"
         else (
             "UPDATE diagnostic_results SET organization_id = (SELECT organization_id FROM diagnostic_runs WHERE diagnostic_runs.id = diagnostic_results.diagnostic_run_id), "
         "device_id = (SELECT device_id FROM diagnostic_runs WHERE diagnostic_runs.id = diagnostic_results.diagnostic_run_id), "
             "title = COALESCE(NULLIF(check_identifier, ''), 'Diagnostic result'), "
-            "checked_at = COALESCE(created_at, CURRENT_TIMESTAMP)"
+            "checked_at = COALESCE(diagnostic_results.created_at, CURRENT_TIMESTAMP)"
         )
     )
     op.execute(backfill_sql)
