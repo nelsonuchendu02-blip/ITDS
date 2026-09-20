@@ -96,3 +96,25 @@ passwords, hashes, tokens, or authorization headers.
 
 MFA, SSO, LDAP, password reset email, refresh-token storage, and browser
 session handling are future security work.
+
+## Phase 1F discovery foundation
+
+Discovery is organization-scoped and uses the permissions
+`discovery:read`, `discovery:run`, and `discovery:manage`. Organization
+administrators receive all three permissions; IT support receives read/run
+access; viewers and technicians do not receive discovery access by default.
+The explicit `organizations:cross_scope` permission remains separate from the
+platform-admin wildcard.
+
+The discovery API accepts only normalized IPv4 addresses or IPv4 CIDR ranges
+of at most 256 addresses. It stores jobs and results with organization
+foreign keys, bounded pagination, explicit lifecycle transitions, and safe
+audit events. The Phase 1F provider is named `simulated`: it is an explicit
+non-network provider used to establish the provider boundary and persistence
+workflow, not a claim of real network probing.
+
+Reconciliation is deterministic and organization-scoped: a result first
+matches a device by IP address, then by hostname when no IP match exists.
+Exactly one match is recorded as `matched`; no match is `unmatched`; multiple
+matches are `conflict`. Discovery does not automatically create or overwrite
+inventory devices.

@@ -7,6 +7,26 @@ class DeviceStatus(StrEnum):
     RETIRED = "retired"
 
 
+class DiscoveryJobStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class DiscoveryResultStatus(StrEnum):
+    DISCOVERED = "discovered"
+    NOT_REACHABLE = "not_reachable"
+    FAILED = "failed"
+
+
+class ReconciliationStatus(StrEnum):
+    UNMATCHED = "unmatched"
+    MATCHED = "matched"
+    CONFLICT = "conflict"
+
+
 class OrganizationStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"

@@ -8,6 +8,14 @@ from .device_management import (
     DevicePage,
     DevicePageMeta,
 )
+from .discovery import (
+    DiscoveryJobCreate,
+    DiscoveryJobPage,
+    DiscoveryJobRead,
+    DiscoveryPageMeta,
+    DiscoveryResultPage,
+    DiscoveryResultRead,
+)
 from .organization import OrganizationCreate, OrganizationRead
 from .auth import TokenRequest, TokenResponse
 from .user import CurrentUserRead, UserRead
@@ -34,6 +42,12 @@ __all__ = [
     "DeviceManagementUpdate",
     "DevicePage",
     "DevicePageMeta",
+    "DiscoveryJobCreate",
+    "DiscoveryJobPage",
+    "DiscoveryJobRead",
+    "DiscoveryPageMeta",
+    "DiscoveryResultPage",
+    "DiscoveryResultRead",
     "OrganizationCreate",
     "OrganizationRead",
     "TokenRequest",

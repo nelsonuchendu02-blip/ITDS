@@ -79,3 +79,9 @@ def get_device_management_service():
     from ...services.device_management import DeviceManagementService
 
     return DeviceManagementService()
+
+
+def get_discovery_service():
+    from ...services.discovery import DiscoveryService
+
+    return DiscoveryService()

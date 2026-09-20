@@ -17,6 +17,10 @@ from app.models import (
     AuditEvent,
     Device,
     DeviceStatus,
+    DiscoveryJob,
+    DiscoveryJobStatus,
+    DiscoveryResult,
+    DiscoveryResultStatus,
     DiagnosticResult,
     DiagnosticResultSeverity,
     DiagnosticResultStatus,
@@ -32,6 +36,7 @@ from app.models import (
     Recommendation,
     RecommendationPriority,
     RecommendationStatus,
+    ReconciliationStatus,
     RepairAction,
     RepairActionStatus,
     Role,
@@ -91,6 +96,8 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
         "repair_actions",
         "escalations",
         "audit_events",
+        "discovery_jobs",
+        "discovery_results",
     }
     assert expected_tables.issubset(set(inspect(engine).get_table_names()))
 
@@ -172,6 +179,30 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
             assigned_to=user.email,
             escalated_at=datetime.now(timezone.utc),
         )
+        discovery_job = DiscoveryJob(
+            organization=organization,
+            created_by_user_id=user.id,
+            provider="simulated",
+            target_type="address",
+            target_definition="192.0.2.10",
+            target_count=1,
+            status=DiscoveryJobStatus.COMPLETED,
+            completed_at=datetime.now(timezone.utc),
+        )
+        discovery_result = DiscoveryResult(
+            job=discovery_job,
+            organization=organization,
+            target_ip="192.0.2.10",
+            discovered_hostname=device.hostname,
+            discovered_device_type=device.device_type,
+            discovered_operating_system=device.operating_system,
+            provider="simulated",
+            status=DiscoveryResultStatus.DISCOVERED,
+            reconciliation_status=ReconciliationStatus.MATCHED,
+            matched_device_id=device.id,
+            discovered_at=datetime.now(timezone.utc),
+            result_metadata={"simulation": True},
+        )
         session.add_all(
             [
                 organization,
@@ -184,6 +215,8 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
                 recommendation,
                 repair_action,
                 escalation,
+                discovery_job,
+                discovery_result,
             ]
         )
         session.flush()
@@ -210,6 +243,8 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
         assert recommendation.diagnostic_result is diagnostic_result
         assert repair_action.recommendation is recommendation
         assert escalation.incident is incident
+        assert discovery_result.job is discovery_job
+        assert discovery_result.matched_device_id == device.id
         assert audit_event.event_metadata == {"source": "pytest", "checks": ["uuid", "json", "fk"]}
 
         session.add(User(email="admin@integration.test", display_name="Duplicate", organization=organization))

@@ -13,12 +13,17 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "devices:read",
             "devices:write",
             "devices:manage",
+            "discovery:read",
+            "discovery:run",
+            "discovery:manage",
             "roles:read",
             "roles:assign",
             "audit:read",
         }
     ),
-    "it_support": frozenset({"users:read", "devices:read", "devices:write", "audit:read"}),
+    "it_support": frozenset(
+        {"users:read", "devices:read", "devices:write", "discovery:read", "discovery:run", "audit:read"}
+    ),
     "technician": frozenset({"devices:read", "devices:write", "diagnostics:run"}),
     "viewer": frozenset({"users:read", "devices:read"}),
 }

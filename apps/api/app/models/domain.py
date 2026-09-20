@@ -11,6 +11,8 @@ from .enums import (
     DiagnosticResultSeverity,
     DiagnosticResultStatus,
     DiagnosticRunStatus,
+    DiscoveryJobStatus,
+    DiscoveryResultStatus,
     EscalationStatus,
     IncidentPriority,
     IncidentSeverity,
@@ -19,6 +21,7 @@ from .enums import (
     RecommendationPriority,
     RecommendationStatus,
     RepairActionStatus,
+    ReconciliationStatus,
     UserStatus,
 )
 
@@ -39,6 +42,8 @@ class Organization(TimestampMixin, Base):
     repair_actions: Mapped[list["RepairAction"]] = relationship(back_populates="organization")
     escalations: Mapped[list["Escalation"]] = relationship(back_populates="organization")
     audit_events: Mapped[list["AuditEvent"]] = relationship(back_populates="organization")
+    discovery_jobs: Mapped[list["DiscoveryJob"]] = relationship(back_populates="organization")
+    discovery_results: Mapped[list["DiscoveryResult"]] = relationship(back_populates="organization")
 
 
 class Role(Base):
@@ -90,6 +95,58 @@ class Device(TimestampMixin, Base):
     )
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     organization: Mapped[Organization] = relationship(back_populates="devices")
+
+
+class DiscoveryJob(TimestampMixin, Base):
+    __tablename__ = "discovery_jobs"
+    __table_args__ = (
+        Index("ix_discovery_jobs_org_status", "organization_id", "status"),
+        Index("ix_discovery_jobs_created_at", "created_at"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_user_id: Mapped = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    target_definition: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[DiscoveryJobStatus] = mapped_column(
+        Enum(DiscoveryJobStatus, name="discovery_job_status"), default=DiscoveryJobStatus.PENDING, nullable=False, index=True
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    organization: Mapped[Organization] = relationship(back_populates="discovery_jobs")
+    results: Mapped[list["DiscoveryResult"]] = relationship(back_populates="job", cascade="all, delete-orphan")
+
+
+class DiscoveryResult(TimestampMixin, Base):
+    __tablename__ = "discovery_results"
+    __table_args__ = (
+        Index("ix_discovery_results_job", "discovery_job_id"),
+        Index("ix_discovery_results_org_ip", "organization_id", "target_ip"),
+        Index("ix_discovery_results_reconciliation", "organization_id", "reconciliation_status"),
+    )
+    id: Mapped = uuid_pk()
+    discovery_job_id: Mapped = mapped_column(ForeignKey("discovery_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_ip: Mapped[str] = mapped_column(String(45), nullable=False)
+    discovered_hostname: Mapped[str | None] = mapped_column(String(255))
+    discovered_device_type: Mapped[str | None] = mapped_column(String(100))
+    discovered_operating_system: Mapped[str | None] = mapped_column(String(200))
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[DiscoveryResultStatus] = mapped_column(
+        Enum(DiscoveryResultStatus, name="discovery_result_status"), nullable=False
+    )
+    reconciliation_status: Mapped[ReconciliationStatus] = mapped_column(
+        Enum(ReconciliationStatus, name="reconciliation_status"), nullable=False
+    )
+    matched_device_id: Mapped = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"), nullable=True, index=True)
+    discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    result_metadata: Mapped[dict | None] = mapped_column("metadata", JSON)
+    job: Mapped[DiscoveryJob] = relationship(back_populates="results")
+    organization: Mapped[Organization] = relationship(back_populates="discovery_results")
 
 
 class Incident(TimestampMixin, Base):
