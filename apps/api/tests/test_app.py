@@ -1,10 +1,12 @@
+from unittest.mock import MagicMock
+
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.db import get_db
-from app.exceptions import DatabaseUnavailableError
 from app.main import app
 
 
@@ -50,9 +52,11 @@ def test_database_readiness_endpoint_with_isolated_sqlite() -> None:
 
 
 def test_database_readiness_endpoint_failure_is_structured() -> None:
+    session = MagicMock()
+    session.execute.side_effect = SQLAlchemyError("database unavailable")
+
     def unavailable_database():
-        raise DatabaseUnavailableError
-        yield
+        yield session
 
     app.dependency_overrides[get_db] = unavailable_database
     try:
@@ -61,9 +65,9 @@ def test_database_readiness_endpoint_failure_is_structured() -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 503
-    assert response.json() == {
-        "error": {"code": "database_unavailable", "message": "Database is unavailable"}
-    }
+    payload = response.json()
+    assert payload["error"]["code"] == "database_unavailable"
+    assert payload["error"]["message"] == "Database is unavailable"
 
 
 def test_config_loading() -> None:
