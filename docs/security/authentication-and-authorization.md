@@ -60,6 +60,26 @@ may only cross that boundary when a caller has the explicit
 implicitly provide it. Assignment of the `platform_admin` role is not exposed
 through the organization-scoped management API.
 
+## Phase 1E device inventory
+
+Authenticated users with `devices:read` can list and retrieve devices in their
+authenticated organization. Users with `devices:write` can update approved
+device metadata; users with `devices:manage` can register devices and activate
+or deactivate them. The organization is assigned from the authenticated user
+and is not accepted from the request body.
+
+Device list requests use bounded pagination with a maximum page size of 100 and
+support search, status, device type, and operating-system filters. Device
+lookups and mutations include the organization predicate, so identifiers from
+another organization return the same not-found response rather than revealing
+whether a device exists. Device IDs, organization IDs, audit ownership, status
+timestamps, and last-seen values are server-controlled.
+
+Device creation, metadata updates, activation, and deactivation create
+organization-scoped audit events containing only safe actor, target, operation,
+result, and status metadata. Discovery, monitoring, telemetry, diagnostics, and
+remediation are outside Phase 1E.
+
 ## Bootstrap and audit
 
 Run `scripts/bootstrap_admin.py` explicitly with `DATABASE_URL` and

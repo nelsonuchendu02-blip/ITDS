@@ -73,3 +73,9 @@ def get_management_service():
     from ...services.management import ManagementService
 
     return ManagementService()
+
+
+def get_device_management_service():
+    from ...services.device_management import DeviceManagementService
+
+    return DeviceManagementService()

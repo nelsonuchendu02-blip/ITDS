@@ -12,6 +12,7 @@ from app.exceptions import PersistenceError
 from app.exceptions import SecurityError
 from app.models import (
     Base,
+    AuditEvent,
     Device,
     DeviceStatus,
     DiagnosticRun,
@@ -32,8 +33,8 @@ from app.models import (
     User,
     UserStatus,
 )
-from app.schemas import DeviceCreate, OrganizationCreate
-from app.services import DeviceService, ManagementService, OrganizationService
+from app.schemas import DeviceCreate, DeviceManagementCreate, OrganizationCreate
+from app.services import DeviceManagementService, DeviceService, ManagementService, OrganizationService
 
 
 def test_sqlite_schema_and_relationships() -> None:
@@ -273,3 +274,79 @@ def test_management_service_rejects_platform_role_assignment() -> None:
 
         with pytest.raises(SecurityError):
             service.assign_role(session, user=target, role=platform_role, actor=actor)
+
+
+def test_device_management_is_scoped_filtered_and_audited() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    service = DeviceManagementService()
+
+    with Session() as session:
+        organization = Organization(name="Managed")
+        other_organization = Organization(name="Other")
+        actor = User(email="admin@managed.test", display_name="Admin", organization=organization)
+        admin_role = Role(name="organization_admin", organization=organization)
+        actor.roles.append(admin_role)
+        session.add_all([organization, other_organization, actor, admin_role])
+        session.commit()
+
+        managed = service.create_device(
+            session,
+            organization_id=organization.id,
+            actor=actor,
+            hostname="managed-pc",
+            device_type="workstation",
+            operating_system="Windows",
+            ip_address="192.0.2.10",
+        )
+        other = Device(
+            organization=other_organization,
+            hostname="other-pc",
+            device_type="server",
+            operating_system="Linux",
+            ip_address="192.0.2.20",
+        )
+        session.add(other)
+        session.commit()
+        assert service.get_device(session, managed.id, organization.id) is managed
+        assert service.get_device(session, other.id, organization.id) is None
+
+        devices, total = service.list_devices(
+            session, organization.id, offset=0, limit=10, search="managed"
+        )
+        assert total == 1
+        assert devices == [managed]
+        updated = service.update_device(
+            session,
+            device=managed,
+            actor=actor,
+            hostname="managed-laptop",
+            device_type="laptop",
+            operating_system="Windows 11",
+            ip_address="192.0.2.11",
+        )
+        assert updated.hostname == "managed-laptop"
+        service.set_status(session, device=managed, actor=actor, status=DeviceStatus.INACTIVE)
+        assert managed.status is DeviceStatus.INACTIVE
+        inactive, inactive_total = service.list_devices(
+            session, organization.id, offset=0, limit=10, status=DeviceStatus.INACTIVE
+        )
+        assert inactive_total == 1
+        assert inactive == [managed]
+        events = session.query(AuditEvent).filter_by(resource_type="device").all()
+        assert {event.event_type for event in events} == {
+            "device_created",
+            "device_updated",
+            "device_deactivated",
+        }
+
+
+def test_device_management_schema_rejects_invalid_input() -> None:
+    with pytest.raises(ValueError):
+        DeviceManagementCreate(
+            hostname="host",
+            device_type="server",
+            operating_system="Linux",
+            ip_address="not-an-ip",
+        )
