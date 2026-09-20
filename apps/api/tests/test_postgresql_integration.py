@@ -126,6 +126,7 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
         role = Role(name="operator", organization=organization)
         user.roles.append(role)
         device = Device(
+            id=uuid.uuid4(),
             hostname="integration-pg-01",
             device_type="workstation",
             operating_system="Linux",
