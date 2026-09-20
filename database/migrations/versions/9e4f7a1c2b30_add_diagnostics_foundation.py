@@ -29,7 +29,8 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
-        op.execute("ALTER TYPE diagnostic_run_status ADD VALUE IF NOT EXISTS 'CANCELLED'")
+        with op.get_context().autocommit_block():
+            op.execute("ALTER TYPE diagnostic_run_status ADD VALUE IF NOT EXISTS 'CANCELLED'")
         sa.Enum(
             "CONNECTIVITY", "CONFIGURATION", "SECURITY", "PERFORMANCE",
             name="diagnostic_check_type",
@@ -155,4 +156,25 @@ def downgrade() -> None:
     op.drop_column("diagnostic_runs", "created_by_user_id")
     op.drop_column("diagnostic_runs", "provider")
     if bind.dialect.name == "postgresql":
+        cancelled_count = bind.execute(sa.text(
+            "SELECT COUNT(*) FROM diagnostic_runs WHERE status = 'CANCELLED'"
+        )).scalar_one()
+        if cancelled_count:
+            raise RuntimeError("Cannot downgrade while diagnostic runs are CANCELLED")
+        original_status = sa.Enum(
+            "PENDING", "RUNNING", "COMPLETED", "FAILED",
+            name="diagnostic_run_status_original",
+        )
+        original_status.create(bind)
+        op.alter_column(
+            "diagnostic_runs",
+            "status",
+            type_=original_status,
+            postgresql_using="status::text::diagnostic_run_status_original",
+        )
+        op.execute("DROP TYPE diagnostic_run_status")
+        op.execute(
+            "ALTER TYPE diagnostic_run_status_original "
+            "RENAME TO diagnostic_run_status"
+        )
         sa.Enum(name="diagnostic_check_type").drop(bind, checkfirst=True)

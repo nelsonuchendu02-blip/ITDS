@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
@@ -93,3 +95,48 @@ def test_phase_1g_migration_backfill_qualifies_result_timestamp() -> None:
     )
     source = migration.read_text(encoding="utf-8")
     assert "COALESCE(diagnostic_results.created_at, CURRENT_TIMESTAMP)" in source
+
+
+@pytest.mark.postgresql
+def test_phase_1g_postgresql_enum_upgrade_and_downgrade(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_url = os.getenv("TEST_DATABASE_URL")
+    if not database_url or not database_url.lower().startswith("postgresql"):
+        pytest.skip("Set TEST_DATABASE_URL to an isolated PostgreSQL database")
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    get_settings.cache_clear()
+    config = _alembic_config()
+    engine = create_engine(database_url)
+    expected_original = ["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+    try:
+        command.downgrade(config, "base")
+        command.upgrade(config, "8d2e4f6a1b90")
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            values = connection.execute(text(
+                "SELECT enumlabel FROM pg_enum "
+                "WHERE enumtypid = 'diagnostic_run_status'::regtype "
+                "ORDER BY enumsortorder"
+            )).scalars().all()
+            constraints = {
+                row[0] for row in connection.execute(text(
+                    "SELECT conname FROM pg_constraint "
+                    "WHERE conrelid = 'diagnostic_runs'::regclass"
+                )).all()
+            }
+        assert values == expected_original + ["CANCELLED"]
+        assert "ck_diagnostic_runs_terminal_timestamps" in constraints
+
+        command.downgrade(config, "8d2e4f6a1b90")
+        with engine.connect() as connection:
+            values = connection.execute(text(
+                "SELECT enumlabel FROM pg_enum "
+                "WHERE enumtypid = 'diagnostic_run_status'::regtype "
+                "ORDER BY enumsortorder"
+            )).scalars().all()
+        assert values == expected_original
+        command.upgrade(config, "head")
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
