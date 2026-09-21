@@ -265,7 +265,11 @@ def test_phase_1h_postgresql_enum_and_schema_lifecycle(monkeypatch: pytest.Monke
             "organization_id", "device_id", "diagnostic_result_id", "category",
             "status", "severity", "confidence", "explanation", "evidence",
         } <= finding_columns
-        assert {("organization_id",), ("device_id",), ("diagnostic_result_id",)} <= finding_fks
+        assert {
+            ("analysis_id", "device_id", "organization_id"),
+            ("device_id", "organization_id"),
+            ("diagnostic_result_id", "device_id", "organization_id"),
+        } <= finding_fks
         assert status_values == ["PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"]
         assert finding_status_values == ["IDENTIFIED", "LIKELY", "INSUFFICIENT_EVIDENCE"]
 
