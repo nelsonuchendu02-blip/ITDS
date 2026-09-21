@@ -241,7 +241,8 @@ def test_phase_1h_postgresql_enum_and_schema_lifecycle(monkeypatch: pytest.Monke
     config = _alembic_config()
     engine = create_engine(database_url)
     try:
-        command.downgrade(config, "9e4f7a1c2b30")
+        command.downgrade(config, "base")
+        command.upgrade(config, "9e4f7a1c2b30")
         command.upgrade(config, "head")
         inspector = inspect(engine)
         finding_columns = {column["name"] for column in inspector.get_columns("root_cause_findings")}

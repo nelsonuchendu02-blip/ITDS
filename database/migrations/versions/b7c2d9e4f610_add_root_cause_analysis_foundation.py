@@ -29,6 +29,28 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     bind = op.get_bind()
 
+    analysis_status = sa.Enum(
+        "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED",
+        name="root_cause_analysis_status", create_type=False,
+    )
+    finding_severity = sa.Enum(
+        "LOW", "MEDIUM", "HIGH", "CRITICAL",
+        name="root_cause_finding_severity", create_type=False,
+    )
+    finding_status = sa.Enum(
+        "IDENTIFIED", "LIKELY", "INSUFFICIENT_EVIDENCE",
+        name="root_cause_finding_status", create_type=False,
+    )
+    finding_confidence = sa.Enum(
+        "HIGH", "MEDIUM", "LOW",
+        name="root_cause_finding_confidence", create_type=False,
+    )
+    if bind.dialect.name == "postgresql":
+        for enum_type in (
+            analysis_status, finding_severity, finding_status, finding_confidence
+        ):
+            enum_type.create(bind, checkfirst=True)
+
     parent_constraints = (
         (
             "diagnostic_runs", "uq_diagnostic_runs_id_device_organization",
@@ -48,14 +70,6 @@ def upgrade() -> None:
         for table_name, constraint_name, columns in parent_constraints:
             op.create_unique_constraint(constraint_name, table_name, columns)
 
-    analysis_status = sa.Enum(
-        "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED",
-        name="root_cause_analysis_status",
-    )
-    finding_severity = sa.Enum(
-        "LOW", "MEDIUM", "HIGH", "CRITICAL",
-        name="root_cause_finding_severity",
-    )
     op.create_table(
         "root_cause_analyses",
         sa.Column("id", MigrationUUID(), nullable=False),
@@ -99,15 +113,9 @@ def upgrade() -> None:
         sa.Column("diagnostic_result_id", MigrationUUID(), nullable=False),
         sa.Column("rule_id", sa.String(length=100), nullable=False),
         sa.Column("category", sa.String(length=100), nullable=False),
-        sa.Column("status", sa.Enum(
-            "IDENTIFIED", "LIKELY", "INSUFFICIENT_EVIDENCE",
-            name="root_cause_finding_status",
-        ), nullable=False),
+        sa.Column("status", finding_status, nullable=False),
         sa.Column("severity", finding_severity, nullable=False),
-        sa.Column("confidence", sa.Enum(
-            "HIGH", "MEDIUM", "LOW",
-            name="root_cause_finding_confidence",
-        ), nullable=False),
+        sa.Column("confidence", finding_confidence, nullable=False),
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("summary", sa.Text(), nullable=False),
         sa.Column("explanation", sa.Text(), nullable=False),
