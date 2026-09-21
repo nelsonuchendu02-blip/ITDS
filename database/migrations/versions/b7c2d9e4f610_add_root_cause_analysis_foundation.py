@@ -28,23 +28,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     bind = op.get_bind()
-    if bind.dialect.name == "postgresql":
-        sa.Enum(
-            "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED",
-            name="root_cause_analysis_status",
-        ).create(bind, checkfirst=True)
-        sa.Enum(
-            "LOW", "MEDIUM", "HIGH", "CRITICAL",
-            name="root_cause_finding_severity",
-        ).create(bind, checkfirst=True)
-        sa.Enum(
-            "IDENTIFIED", "LIKELY", "INSUFFICIENT_EVIDENCE",
-            name="root_cause_finding_status",
-        ).create(bind, checkfirst=True)
-        sa.Enum(
-            "HIGH", "MEDIUM", "LOW",
-            name="root_cause_finding_confidence",
-        ).create(bind, checkfirst=True)
 
     parent_constraints = (
         (
