@@ -97,3 +97,9 @@ def get_root_cause_service():
     from ...services.root_cause import RootCauseService
 
     return RootCauseService()
+
+
+def get_recommendation_service():
+    from ...services.recommendation import RecommendationService
+
+    return RecommendationService()

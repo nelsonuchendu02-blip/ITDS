@@ -40,6 +40,7 @@ from .root_cause import (
     RootCauseAnalysisCreate, RootCauseAnalysisPage, RootCauseAnalysisRead,
     RootCauseFindingPage, RootCauseFindingRead, RootCausePageMeta,
 )
+from .recommendation import RecommendationCreate, RecommendationGenerate, RecommendationPage, RecommendationPageMeta, RecommendationRead
 
 __all__ = [
     "CurrentUserRead",
@@ -76,4 +77,6 @@ __all__ = [
     "RootCauseAnalysisCreate", "RootCauseAnalysisPage", "RootCauseAnalysisRead",
     "RootCauseFindingPage", "RootCauseFindingRead", "RootCausePageMeta",
     "UserUpdateAdmin",
+    "RecommendationCreate", "RecommendationRead", "RecommendationPage", "RecommendationPageMeta",
+    "RecommendationGenerate",
 ]

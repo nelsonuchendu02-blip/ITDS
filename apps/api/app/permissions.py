@@ -22,6 +22,9 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "root_cause:read",
             "root_cause:run",
             "root_cause:manage",
+            "recommendations:read",
+            "recommendations:run",
+            "recommendations:manage",
             "roles:read",
             "roles:assign",
             "audit:read",
@@ -29,10 +32,11 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     ),
     "it_support": frozenset(
         {"users:read", "devices:read", "devices:write", "discovery:read", "discovery:run",
-         "root_cause:read", "root_cause:run", "audit:read"}
+         "root_cause:read", "root_cause:run", "recommendations:read", "recommendations:run", "audit:read"}
     ),
     "technician": frozenset({"devices:read", "devices:write", "diagnostics:read", "diagnostics:run",
-                             "root_cause:read", "root_cause:run"}),
+                             "root_cause:read", "root_cause:run", "recommendations:read",
+                             "recommendations:run"}),
     "viewer": frozenset({"users:read", "devices:read"}),
 }
 ORG_CROSS_SCOPE_PERMISSION = "organizations:cross_scope"

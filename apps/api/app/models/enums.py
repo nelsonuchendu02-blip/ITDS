@@ -120,11 +120,35 @@ class RecommendationPriority(StrEnum):
     HIGH = "high"
 
 
+class RecommendationSeverity(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class RecommendationConfidence(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class RecommendationRemediationType(StrEnum):
+    GUIDANCE = "guidance"
+    CONFIGURATION = "configuration"
+    INVESTIGATION = "investigation"
+    ESCALATION = "escalation"
+
+
 class RecommendationStatus(StrEnum):
-    PROPOSED = "proposed"
+    PENDING = "pending"
+    REVIEWED = "reviewed"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
-    COMPLETED = "completed"
+    IMPLEMENTED = "implemented"
+    # Compatibility aliases for Phase 1A/1I callers; they do not add values.
+    PROPOSED = "pending"
+    COMPLETED = "implemented"
 
 
 class RepairActionStatus(StrEnum):

@@ -20,3 +20,8 @@ Example payload:
 ```
 
 Future API work will add diagnostic, incident, and support workflow endpoints under versioned routes such as `/api/v1`.
+## Recommendations
+
+The versioned API provides organization-scoped recommendation workflows at
+`/api/v1/recommendations`. See `docs/security/recommendations.md` for the
+permission and lifecycle rules.

@@ -9,7 +9,8 @@ from .domain import (
 from .enums import (
     DeviceStatus, DiagnosticCheckType, DiagnosticResultSeverity, DiagnosticResultStatus,
     DiagnosticRunStatus, DiscoveryJobStatus, DiscoveryResultStatus, EscalationStatus, IncidentPriority, IncidentSeverity,
-    IncidentStatus, OrganizationStatus, RecommendationPriority, RecommendationStatus,
+    IncidentStatus, OrganizationStatus, RecommendationConfidence, RecommendationPriority,
+    RecommendationRemediationType, RecommendationSeverity, RecommendationStatus,
     ReconciliationStatus, RepairActionStatus, RootCauseAnalysisStatus, RootCauseFindingConfidence,
     RootCauseFindingSeverity, RootCauseFindingStatus, UserStatus,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "RepairAction", "Escalation", "AuditEvent", "BootstrapState", "DeviceStatus", "DiagnosticRunStatus",
     "EscalationStatus", "IncidentPriority", "IncidentSeverity", "IncidentStatus",
     "OrganizationStatus", "RecommendationPriority", "RecommendationStatus",
+    "RecommendationSeverity", "RecommendationConfidence", "RecommendationRemediationType",
     "RepairActionStatus", "UserStatus", "DiagnosticResultStatus",
     "DiagnosticResultSeverity", "DiscoveryJobStatus", "DiscoveryResultStatus", "ReconciliationStatus",
     "DiagnosticCheckType",
