@@ -7,6 +7,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import ENUM as PostgreSQLEnum
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 
 
@@ -29,21 +30,23 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     bind = op.get_bind()
 
-    analysis_status = sa.Enum(
+    enum_type = PostgreSQLEnum if bind.dialect.name == "postgresql" else sa.Enum
+    enum_kwargs = {"create_type": False} if bind.dialect.name == "postgresql" else {}
+    analysis_status = enum_type(
         "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED",
-        name="root_cause_analysis_status", create_type=False,
+        name="root_cause_analysis_status", **enum_kwargs,
     )
-    finding_severity = sa.Enum(
+    finding_severity = enum_type(
         "LOW", "MEDIUM", "HIGH", "CRITICAL",
-        name="root_cause_finding_severity", create_type=False,
+        name="root_cause_finding_severity", **enum_kwargs,
     )
-    finding_status = sa.Enum(
+    finding_status = enum_type(
         "IDENTIFIED", "LIKELY", "INSUFFICIENT_EVIDENCE",
-        name="root_cause_finding_status", create_type=False,
+        name="root_cause_finding_status", **enum_kwargs,
     )
-    finding_confidence = sa.Enum(
+    finding_confidence = enum_type(
         "HIGH", "MEDIUM", "LOW",
-        name="root_cause_finding_confidence", create_type=False,
+        name="root_cause_finding_confidence", **enum_kwargs,
     )
     if bind.dialect.name == "postgresql":
         for enum_type in (
