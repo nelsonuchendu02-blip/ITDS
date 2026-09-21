@@ -1,8 +1,12 @@
 """SQLAlchemy domain models for the Phase 1A persistence foundation."""
 
 from datetime import datetime, timezone
+from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, event
+from sqlalchemy import (
+    Boolean, DateTime, Enum, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON,
+    String, Text, UniqueConstraint, event,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin, uuid_pk
@@ -23,6 +27,10 @@ from .enums import (
     RecommendationStatus,
     RepairActionStatus,
     ReconciliationStatus,
+    RootCauseAnalysisStatus,
+    RootCauseFindingConfidence,
+    RootCauseFindingSeverity,
+    RootCauseFindingStatus,
     UserStatus,
 )
 
@@ -45,6 +53,7 @@ class Organization(TimestampMixin, Base):
     audit_events: Mapped[list["AuditEvent"]] = relationship(back_populates="organization")
     discovery_jobs: Mapped[list["DiscoveryJob"]] = relationship(back_populates="organization")
     discovery_results: Mapped[list["DiscoveryResult"]] = relationship(back_populates="organization")
+    root_cause_analyses: Mapped[list["RootCauseAnalysis"]] = relationship(back_populates="organization")
 
 
 class Role(Base):
@@ -180,7 +189,13 @@ class Incident(TimestampMixin, Base):
 
 class DiagnosticRun(TimestampMixin, Base):
     __tablename__ = "diagnostic_runs"
-    __table_args__ = (Index("ix_diagnostic_runs_status_started_at", "status", "started_at"),)
+    __table_args__ = (
+        Index("ix_diagnostic_runs_status_started_at", "status", "started_at"),
+        UniqueConstraint(
+            "id", "device_id", "organization_id",
+            name="uq_diagnostic_runs_id_device_organization",
+        ),
+    )
     id: Mapped = uuid_pk()
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     device_id: Mapped = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -202,6 +217,12 @@ class DiagnosticRun(TimestampMixin, Base):
 
 class DiagnosticResult(TimestampMixin, Base):
     __tablename__ = "diagnostic_results"
+    __table_args__ = (
+        UniqueConstraint(
+            "id", "device_id", "organization_id",
+            name="uq_diagnostic_results_id_device_organization",
+        ),
+    )
     id: Mapped = uuid_pk()
     diagnostic_run_id: Mapped = mapped_column(ForeignKey("diagnostic_runs.id", ondelete="CASCADE"), nullable=False, index=True)
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -237,6 +258,100 @@ def _scope_diagnostic_result(_mapper, _connection, target: DiagnosticResult) -> 
     if target.diagnostic_run is not None:
         target.organization_id = target.organization_id or target.diagnostic_run.organization_id
         target.device_id = target.device_id or target.diagnostic_run.device_id
+
+
+class RootCauseAnalysis(TimestampMixin, Base):
+    __tablename__ = "root_cause_analyses"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_root_cause_analyses_id_organization"),
+        Index("ix_root_cause_analyses_org_status", "organization_id", "status"),
+        Index("ix_root_cause_analyses_run", "diagnostic_run_id"),
+        ForeignKeyConstraint(
+            ["device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+            name="fk_root_cause_analyses_device_organization",
+        ),
+        ForeignKeyConstraint(
+            ["diagnostic_run_id", "device_id", "organization_id"],
+            [
+                "diagnostic_runs.id", "diagnostic_runs.device_id",
+                "diagnostic_runs.organization_id",
+            ],
+            name="fk_root_cause_analyses_run_organization",
+        ),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    diagnostic_run_id: Mapped[UUID] = mapped_column(nullable=False)
+    initiated_by_user_id: Mapped = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False, default="deterministic")
+    status: Mapped[RootCauseAnalysisStatus] = mapped_column(
+        Enum(RootCauseAnalysisStatus, name="root_cause_analysis_status"),
+        default=RootCauseAnalysisStatus.PENDING, nullable=False, index=True,
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    organization: Mapped[Organization] = relationship(back_populates="root_cause_analyses")
+    device: Mapped[Device] = relationship(overlaps="organization,root_cause_analyses")
+    diagnostic_run: Mapped[DiagnosticRun] = relationship(
+        overlaps="device,organization,root_cause_analyses"
+    )
+    findings: Mapped[list["RootCauseFinding"]] = relationship(
+        back_populates="analysis", cascade="all, delete-orphan"
+    )
+
+
+class RootCauseFinding(TimestampMixin, Base):
+    __tablename__ = "root_cause_findings"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_root_cause_findings_id_organization"),
+        UniqueConstraint("analysis_id", "fingerprint", name="uq_root_cause_findings_analysis_fingerprint"),
+        Index("ix_root_cause_findings_analysis", "analysis_id"),
+        Index("ix_root_cause_findings_org_device", "organization_id", "device_id"),
+        ForeignKeyConstraint(
+            ["analysis_id", "device_id", "organization_id"],
+            [
+                "root_cause_analyses.id", "root_cause_analyses.device_id",
+                "root_cause_analyses.organization_id",
+            ],
+            name="fk_root_cause_findings_analysis_organization",
+        ),
+        ForeignKeyConstraint(
+            ["device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+            name="fk_root_cause_findings_device_organization",
+        ),
+        ForeignKeyConstraint(
+            ["diagnostic_result_id", "device_id", "organization_id"],
+            [
+                "diagnostic_results.id", "diagnostic_results.device_id",
+                "diagnostic_results.organization_id",
+            ],
+            name="fk_root_cause_findings_result_organization",
+        ),
+    )
+    id: Mapped = uuid_pk()
+    analysis_id: Mapped[UUID] = mapped_column(nullable=False)
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    diagnostic_result_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    rule_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    category: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[RootCauseFindingStatus] = mapped_column(
+        Enum(RootCauseFindingStatus, name="root_cause_finding_status"), nullable=False
+    )
+    severity: Mapped[RootCauseFindingSeverity] = mapped_column(
+        Enum(RootCauseFindingSeverity, name="root_cause_finding_severity"), nullable=False
+    )
+    confidence: Mapped[RootCauseFindingConfidence] = mapped_column(
+        Enum(RootCauseFindingConfidence, name="root_cause_finding_confidence"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence: Mapped[dict] = mapped_column(JSON, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(255), nullable=False)
+    analysis: Mapped[RootCauseAnalysis] = relationship(back_populates="findings")
 
 
 class Recommendation(TimestampMixin, Base):

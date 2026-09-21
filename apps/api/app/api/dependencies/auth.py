@@ -91,3 +91,9 @@ def get_diagnostic_service():
     from ...services.diagnostics import DiagnosticService
 
     return DiagnosticService()
+
+
+def get_root_cause_service():
+    from ...services.root_cause import RootCauseService
+
+    return RootCauseService()

@@ -87,6 +87,33 @@ class DiagnosticResultSeverity(StrEnum):
     CRITICAL = "critical"
 
 
+class RootCauseAnalysisStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class RootCauseFindingSeverity(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class RootCauseFindingStatus(StrEnum):
+    IDENTIFIED = "identified"
+    LIKELY = "likely"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+
+
+class RootCauseFindingConfidence(StrEnum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
 class RecommendationPriority(StrEnum):
     LOW = "low"
     MEDIUM = "medium"

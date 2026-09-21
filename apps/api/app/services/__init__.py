@@ -6,6 +6,7 @@ from .discovery import DiscoveryService
 from .organization import OrganizationService
 from .management import ManagementService
 from .auth import AuthenticationService
+from .root_cause import RootCauseService
 
 __all__ = [
     "AuthenticationService",
@@ -14,4 +15,5 @@ __all__ = [
     "DiscoveryService",
     "ManagementService",
     "OrganizationService",
+    "RootCauseService",
 ]
