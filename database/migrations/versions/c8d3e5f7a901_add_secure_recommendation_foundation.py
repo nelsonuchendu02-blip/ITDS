@@ -159,6 +159,7 @@ def downgrade() -> None:
             for name in ("implementation_notes", "implemented_at", "rejection_reason", "reviewed_at",
                          "reviewed_by_user_id", "evidence", "fingerprint", "rule_id", "rationale", "decided_at",
                          "decided_by_user_id", "created_by_user_id", "root_cause_finding_id",
+                         "root_cause_analysis_id",
                          "requires_human_approval", "remediation_type", "confidence",
                          "expected_effect", "summary", "severity", "category"):
                 batch.drop_column(name)
@@ -175,6 +176,7 @@ def downgrade() -> None:
         for name in ("implementation_notes", "implemented_at", "rejection_reason", "reviewed_at",
                      "reviewed_by_user_id", "evidence", "fingerprint", "rule_id", "rationale", "decided_at",
                      "decided_by_user_id", "created_by_user_id", "root_cause_finding_id",
+                     "root_cause_analysis_id",
                      "requires_human_approval", "remediation_type", "confidence",
                      "expected_effect", "summary", "severity", "category"):
             op.drop_column("recommendations", name)
