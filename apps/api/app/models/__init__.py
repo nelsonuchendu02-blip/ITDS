@@ -5,7 +5,7 @@ from .domain import (
     AuditEvent, BootstrapState, Device, DiagnosticResult, DiagnosticRun, DiscoveryJob, DiscoveryResult, Escalation,
     Incident, Organization, Recommendation, RepairAction, Role, User, UserRole,
     RootCauseAnalysis, RootCauseFinding, RemediationPlan, RemediationAction, RemediationVerification,
-    Site, Network, Subnet, VLAN, WLAN, SSID,
+    Site, Network, Subnet, VLAN, WLAN, SSID, MonitoringTarget, HealthTelemetry,
 )
 from .enums import (
     AssetType, DeviceAssetType, DeviceCriticality, DeviceStatus, DiagnosticCheckType, DiagnosticResultSeverity,
@@ -15,6 +15,7 @@ from .enums import (
     ReconciliationStatus, RepairActionStatus, RootCauseAnalysisStatus, RootCauseFindingConfidence,
     RootCauseFindingSeverity, RootCauseFindingStatus, UserStatus,
     RemediationPlanStatus, RemediationActionStatus, RemediationVerificationStatus,
+    HealthStatus,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "RootCauseFindingStatus", "RootCauseFindingConfidence",
     "RemediationPlan", "RemediationAction", "RemediationVerification",
     "RemediationPlanStatus", "RemediationActionStatus", "RemediationVerificationStatus",
+    "MonitoringTarget", "HealthTelemetry", "HealthStatus",
 ]

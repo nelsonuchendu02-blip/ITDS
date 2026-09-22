@@ -9,6 +9,7 @@ from .recommendation import RecommendationRepository
 from .organization import OrganizationRepository
 from .role import RoleRepository
 from .user import UserRepository
+from .monitoring import MonitoringRepository
 
 __all__ = [
     "AuditRepository",
@@ -21,4 +22,5 @@ __all__ = [
     "OrganizationRepository",
     "RoleRepository",
     "UserRepository",
+    "MonitoringRepository",
 ]

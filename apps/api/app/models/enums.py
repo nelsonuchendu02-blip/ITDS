@@ -33,6 +33,14 @@ class DeviceStatus(StrEnum):
     RETIRED = "retired"
 
 
+class HealthStatus(StrEnum):
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNHEALTHY = "unhealthy"
+    OFFLINE = "offline"
+    UNKNOWN = "unknown"
+
+
 class DiscoveryJobStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"

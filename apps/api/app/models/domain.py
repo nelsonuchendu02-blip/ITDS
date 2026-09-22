@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import (
-    Boolean, DateTime, Enum, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON,
+    Boolean, CheckConstraint, DateTime, Enum, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON,
     String, Text, UniqueConstraint, event,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin, uuid_pk
 from .enums import (
     DeviceStatus,
+    HealthStatus,
     DiagnosticResultSeverity,
     DiagnosticResultStatus,
     DiagnosticRunStatus,
@@ -65,6 +66,8 @@ class Organization(TimestampMixin, Base):
     discovery_results: Mapped[list["DiscoveryResult"]] = relationship(back_populates="organization")
     root_cause_analyses: Mapped[list["RootCauseAnalysis"]] = relationship(back_populates="organization")
     remediation_plans: Mapped[list["RemediationPlan"]] = relationship(back_populates="organization")
+    monitoring_targets: Mapped[list["MonitoringTarget"]] = relationship()
+    health_telemetry: Mapped[list["HealthTelemetry"]] = relationship()
 
 
 class Role(Base):
@@ -161,6 +164,69 @@ class Device(TimestampMixin, Base):
     )
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     organization: Mapped[Organization] = relationship(back_populates="devices")
+
+
+class MonitoringTarget(TimestampMixin, Base):
+    __tablename__ = "monitoring_targets"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_monitoring_targets_id_organization"),
+        UniqueConstraint("organization_id", "device_id", name="uq_monitoring_targets_org_device"),
+        ForeignKeyConstraint(["device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+                             name="fk_monitoring_targets_device_org"),
+        CheckConstraint("check_interval_seconds >= 10", name="ck_monitoring_targets_interval_min"),
+        CheckConstraint("check_interval_seconds <= 86400", name="ck_monitoring_targets_interval_max"),
+        CheckConstraint("offline_after_seconds >= 10", name="ck_monitoring_targets_offline_min"),
+        CheckConstraint("offline_after_seconds <= 604800", name="ck_monitoring_targets_offline_max"),
+        CheckConstraint("offline_after_seconds >= check_interval_seconds",
+                        name="ck_monitoring_targets_offline_after_interval"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    check_interval_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=300)
+    offline_after_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=900)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    last_status_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_code: Mapped[str | None] = mapped_column(String(100))
+    health_status: Mapped[HealthStatus] = mapped_column(
+        Enum(HealthStatus, name="health_status"), nullable=False, default=HealthStatus.UNKNOWN, index=True
+    )
+    organization: Mapped[Organization] = relationship(overlaps="monitoring_targets,health_telemetry")
+    device: Mapped[Device] = relationship(overlaps="organization,monitoring_targets,health_telemetry")
+
+
+class HealthTelemetry(TimestampMixin, Base):
+    __tablename__ = "health_telemetry"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_health_telemetry_id_organization"),
+        ForeignKeyConstraint(["device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+                             name="fk_health_telemetry_device_org"),
+        ForeignKeyConstraint(["target_id", "organization_id"],
+                             ["monitoring_targets.id", "monitoring_targets.organization_id"],
+                             name="fk_health_telemetry_target_org"),
+        Index("ix_health_telemetry_org_device_observed", "organization_id", "device_id", "observed_at"),
+        Index("ix_health_telemetry_received_at", "received_at"),
+        Index("ix_health_telemetry_org_health_status", "organization_id", "health_status"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    target_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    health_status: Mapped[HealthStatus] = mapped_column(Enum(HealthStatus, name="health_status"), nullable=False)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    packet_loss_percent: Mapped[float | None] = mapped_column()
+    cpu_percent: Mapped[float | None] = mapped_column()
+    memory_percent: Mapped[float | None] = mapped_column()
+    disk_percent: Mapped[float | None] = mapped_column()
+    uptime_seconds: Mapped[int | None] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    details: Mapped[dict | None] = mapped_column(JSON)
+    organization: Mapped[Organization] = relationship(overlaps="health_telemetry")
+    device: Mapped[Device] = relationship(overlaps="organization,health_telemetry,target")
+    target: Mapped[MonitoringTarget] = relationship(overlaps="device,organization,health_telemetry")
 
 
 class Site(TimestampMixin, Base):

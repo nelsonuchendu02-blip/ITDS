@@ -51,6 +51,10 @@ from .inventory import (
     SiteCreate, SiteRead, SiteUpdate, SSIDCreate, SSIDRead, SSIDUpdate,
     SubnetCreate, SubnetRead, SubnetUpdate, VLANCreate, VLANRead, VLANUpdate,
 )
+from .monitoring import (
+    MonitoringTargetCreate, MonitoringTargetRead, MonitoringTargetUpdate, MonitoringTargetPage,
+    TelemetryCreate, TelemetryRead, TelemetryPage, MonitoringSummary, MonitoringPageMeta,
+)
 
 __all__ = [
     "CurrentUserRead",
@@ -98,4 +102,6 @@ __all__ = [
     "SubnetCreate", "SubnetRead", "SubnetUpdate",
     "VLANCreate", "VLANRead", "VLANUpdate",
     "SSIDCreate", "SSIDRead", "SSIDUpdate",
+    "MonitoringTargetCreate", "MonitoringTargetRead", "MonitoringTargetUpdate", "MonitoringTargetPage",
+    "TelemetryCreate", "TelemetryRead", "TelemetryPage", "MonitoringSummary", "MonitoringPageMeta",
 ]

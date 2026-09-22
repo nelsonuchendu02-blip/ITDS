@@ -114,3 +114,8 @@ def get_inventory_service():
     from ...services.inventory import InventoryService
 
     return InventoryService()
+
+
+def get_monitoring_service():
+    from ...services.monitoring import MonitoringService
+    return MonitoringService()
