@@ -25,7 +25,10 @@ The current user is loaded from the token subject and database. Organization
 context comes from `User.organization_id`; client-supplied organization IDs are
 not used as authorization proof.
 
-Ordinary authorization checks remain organization-scoped. The
+Ordinary authorization checks remain organization-scoped. Remediation uses the
+separate permissions `remediation:read`, `remediation:create`,
+`remediation:approve`, `remediation:execute`, `remediation:manage`, and
+`remediation:verify`. The
 `platform_admin` wildcard covers defined in-organization permissions only; it
 does not grant cross-organization access. Cross-organization authority would
 require the separate explicit `organizations:cross_scope` permission, which no

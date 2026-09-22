@@ -41,6 +41,7 @@ from .root_cause import (
     RootCauseFindingPage, RootCauseFindingRead, RootCausePageMeta,
 )
 from .recommendation import RecommendationCreate, RecommendationGenerate, RecommendationPage, RecommendationPageMeta, RecommendationRead
+from .remediation import RemediationGenerate, RemediationActionRead, RemediationVerificationRead, RemediationPlanRead
 
 __all__ = [
     "CurrentUserRead",
@@ -79,4 +80,5 @@ __all__ = [
     "UserUpdateAdmin",
     "RecommendationCreate", "RecommendationRead", "RecommendationPage", "RecommendationPageMeta",
     "RecommendationGenerate",
+    "RemediationGenerate", "RemediationActionRead", "RemediationVerificationRead", "RemediationPlanRead",
 ]

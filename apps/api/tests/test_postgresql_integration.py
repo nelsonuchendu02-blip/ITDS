@@ -96,11 +96,21 @@ def test_postgresql_migration_and_persistence_lifecycle(postgresql_database) -> 
         "repair_actions",
         "escalations",
         "audit_events",
+        "remediation_plans",
+        "remediation_actions",
+        "remediation_verifications",
         "discovery_jobs",
         "discovery_results",
     }
     inspector = inspect(engine)
     assert expected_tables.issubset(set(inspector.get_table_names()))
+    plan_enum = next((enum for enum in inspector.get_enums()
+                      if enum["name"] == "remediation_plan_status"), None)
+    assert plan_enum is not None
+    assert {
+        "draft", "pending_approval", "approved", "rejected", "queued",
+        "executing", "succeeded", "failed", "cancelled", "verification_required", "verified",
+    } == set(plan_enum["labels"])
     discovery_result_columns = {
         column["name"] for column in inspector.get_columns("discovery_results")
     }

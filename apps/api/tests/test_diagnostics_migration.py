@@ -231,6 +231,201 @@ def test_phase_1h_sqlite_rejects_cross_organization_combinations(tmp_path, monke
         get_settings.cache_clear()
 
 
+def test_phase_1j_sqlite_rejects_cross_organization_remediation_rows(
+    tmp_path, monkeypatch
+) -> None:
+    database_url = f"sqlite:///{tmp_path / 'phase-1j-integrity.db'}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    get_settings.cache_clear()
+    config = _alembic_config()
+    engine = create_engine(database_url)
+    org_a, org_b = str(uuid4()), str(uuid4())
+    device_a, device_b, device_b_org = str(uuid4()), str(uuid4()), str(uuid4())
+    recommendation_a, recommendation_b, recommendation_other = (
+        str(uuid4()), str(uuid4()), str(uuid4())
+    )
+    run_b, result_b, analysis_b, finding_b = (str(uuid4()) for _ in range(4))
+    plan_id = str(uuid4())
+
+    def insert_recommendation(connection, recommendation_id, organization_id, device_id):
+        connection.execute(text(
+            "INSERT INTO recommendations "
+            "(id, organization_id, device_id, title, priority, status) "
+            "VALUES (:id, :organization_id, :device_id, 'Recommendation', 'HIGH', 'accepted')"
+        ), {
+            "id": recommendation_id, "organization_id": organization_id,
+            "device_id": device_id,
+        })
+
+    def insert_plan(connection, plan, organization_id, device_id, recommendation_id):
+        connection.execute(text(
+            "INSERT INTO remediation_plans "
+            "(id, organization_id, device_id, recommendation_id, root_cause_finding_id, status, title, "
+            "rationale, plan_hash, verification_status) "
+            "VALUES (:id, :organization_id, :device_id, :recommendation_id, "
+            "NULL, 'draft', 'Plan', 'Rationale', :plan_hash, 'pending')"
+        ), {
+            "id": plan, "organization_id": organization_id, "device_id": device_id,
+            "recommendation_id": recommendation_id, "plan_hash": plan.replace("-", ""),
+        })
+
+    try:
+        command.upgrade(config, "head")
+        with engine.begin() as connection:
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            for organization_id, name in ((org_a, "A"), (org_b, "B")):
+                connection.execute(text(
+                    "INSERT INTO organizations (id, name, status) "
+                    "VALUES (:id, :name, 'ACTIVE')"
+                ), {"id": organization_id, "name": name})
+            for device_id, organization_id, hostname in (
+                (device_a, org_a, "a-device"),
+                (device_b, org_a, "b-device"),
+                (device_b_org, org_b, "b-org-device"),
+            ):
+                connection.execute(text(
+                    "INSERT INTO devices "
+                    "(id, organization_id, hostname, device_type, operating_system, status) "
+                    "VALUES (:id, :organization_id, :hostname, 'server', 'Linux', 'ACTIVE')"
+                ), {
+                    "id": device_id, "organization_id": organization_id,
+                    "hostname": hostname,
+                })
+            insert_recommendation(connection, recommendation_a, org_a, device_a)
+            insert_recommendation(connection, recommendation_b, org_a, device_b)
+            insert_recommendation(connection, recommendation_other, org_b, device_b_org)
+            connection.execute(text(
+                "INSERT INTO diagnostic_runs "
+                "(id, organization_id, device_id, diagnostic_type, status) "
+                "VALUES (:id, :organization_id, :device_id, 'connectivity', 'COMPLETED')"
+            ), {"id": run_b, "organization_id": org_b, "device_id": device_b_org})
+            connection.execute(text(
+                "INSERT INTO diagnostic_results "
+                "(id, diagnostic_run_id, organization_id, device_id, check_identifier, "
+                "check_type, status, severity, title, checked_at) "
+                "VALUES (:id, :run_id, :organization_id, :device_id, 'check', "
+                "'CONNECTIVITY', 'FAIL', 'HIGH', 'Check', CURRENT_TIMESTAMP)"
+            ), {"id": result_b, "run_id": run_b, "organization_id": org_b, "device_id": device_b_org})
+            connection.execute(text(
+                "INSERT INTO root_cause_analyses "
+                "(id, organization_id, device_id, diagnostic_run_id, provider, status) "
+                "VALUES (:id, :organization_id, :device_id, :run_id, 'deterministic', 'PENDING')"
+            ), {"id": analysis_b, "organization_id": org_b, "device_id": device_b_org, "run_id": run_b})
+            connection.execute(text(
+                "INSERT INTO root_cause_findings "
+                "(id, analysis_id, organization_id, device_id, diagnostic_result_id, rule_id, "
+                "category, status, severity, confidence, title, summary, explanation, evidence, fingerprint) "
+                "VALUES (:id, :analysis_id, :organization_id, :device_id, :result_id, "
+                "'rule', 'CONNECTIVITY', 'IDENTIFIED', 'HIGH', 'HIGH', 'Finding', "
+                "'Summary', 'Explanation', '{}', 'finding-b')"
+            ), {"id": finding_b, "analysis_id": analysis_b, "organization_id": org_b,
+                "device_id": device_b_org, "result_id": result_b})
+            insert_plan(connection, plan_id, org_a, device_a, recommendation_a)
+
+        invalid_plans = (
+            (str(uuid4()), org_a, device_a, recommendation_b),
+            (str(uuid4()), org_a, device_a, recommendation_other),
+        )
+        for invalid_plan, organization_id, device_id, recommendation_id in invalid_plans:
+            with pytest.raises(IntegrityError):
+                with engine.begin() as connection:
+                    connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+                    insert_plan(connection, invalid_plan, organization_id, device_id, recommendation_id)
+
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+                connection.execute(text(
+                    "INSERT INTO remediation_plans "
+                    "(id, organization_id, device_id, root_cause_finding_id, status, "
+                    "title, rationale, plan_hash, verification_status) "
+                    "VALUES (:id, :organization_id, :device_id, :finding_id, "
+                    "'draft', 'Plan', 'Rationale', :plan_hash, 'pending')"
+                ), {
+                    "id": str(uuid4()), "organization_id": org_a, "device_id": device_a,
+                    "finding_id": finding_b, "plan_hash": str(uuid4()).replace("-", ""),
+                })
+
+        plan_columns = {
+            column["name"] for column in inspect(engine).get_columns("remediation_plans")
+        }
+        assert "root_cause_finding_id" in plan_columns
+        plan_fks = {
+            tuple(foreign_key["constrained_columns"])
+            for foreign_key in inspect(engine).get_foreign_keys("remediation_plans")
+        }
+        assert {
+            ("recommendation_id", "device_id", "organization_id"),
+            ("root_cause_finding_id", "device_id", "organization_id"),
+        } <= plan_fks
+
+        invalid_children = (
+            (
+                "remediation_actions",
+                "id, plan_id, organization_id, device_id, sequence, action_key, parameters, status",
+                f"'{uuid4()}', '{plan_id}', '{org_a}', '{device_b}', 1, 'safe', '{{}}', 'pending'",
+            ),
+            (
+                "remediation_verifications",
+                "id, plan_id, organization_id, device_id, check_key, status",
+                f"'{uuid4()}', '{plan_id}', '{org_a}', '{device_b}', 'health', 'pending'",
+            ),
+        )
+        for table, columns, values in invalid_children:
+            with pytest.raises(IntegrityError):
+                with engine.begin() as connection:
+                    connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+                    connection.execute(text(
+                        f"INSERT INTO {table} ({columns}) VALUES ({values})"
+                    ))
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
+
+
+@pytest.mark.postgresql
+def test_phase_1j_postgresql_constraint_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
+    database_url = os.getenv("TEST_DATABASE_URL")
+    if not database_url or not database_url.lower().startswith("postgresql"):
+        pytest.skip("Set TEST_DATABASE_URL to an isolated PostgreSQL database")
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    get_settings.cache_clear()
+    config = _alembic_config()
+    engine = create_engine(database_url)
+    try:
+        command.downgrade(config, "c8d3e5f7a901")
+        command.upgrade(config, "head")
+        inspector = inspect(engine)
+        for table_name, constraint_name in (
+            ("recommendations", "uq_recommendations_id_org"),
+            ("recommendations", "uq_recommendations_id_device_org"),
+            ("root_cause_analyses", "uq_root_cause_analyses_id_organization"),
+            ("root_cause_findings", "uq_root_cause_findings_id_organization"),
+            ("remediation_plans", "uq_remediation_plans_id_device_org"),
+        ):
+            assert constraint_name in {
+                constraint["name"]
+                for constraint in inspector.get_unique_constraints(table_name)
+            }
+        assert {
+            ("recommendation_id", "device_id", "organization_id"),
+            ("root_cause_finding_id", "device_id", "organization_id"),
+        } <= {
+            tuple(foreign_key["constrained_columns"])
+            for foreign_key in inspector.get_foreign_keys("remediation_plans")
+        }
+        assert {
+            ("plan_id", "device_id", "organization_id"),
+            ("device_id", "organization_id"),
+        } <= {
+            tuple(foreign_key["constrained_columns"])
+            for foreign_key in inspector.get_foreign_keys("remediation_actions")
+        }
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
+
+
 @pytest.mark.postgresql
 def test_phase_1h_postgresql_enum_and_schema_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
     database_url = os.getenv("TEST_DATABASE_URL")

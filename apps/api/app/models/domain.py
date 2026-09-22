@@ -35,6 +35,7 @@ from .enums import (
     RootCauseFindingSeverity,
     RootCauseFindingStatus,
     UserStatus,
+    RemediationPlanStatus, RemediationActionStatus, RemediationVerificationStatus,
 )
 
 
@@ -57,6 +58,7 @@ class Organization(TimestampMixin, Base):
     discovery_jobs: Mapped[list["DiscoveryJob"]] = relationship(back_populates="organization")
     discovery_results: Mapped[list["DiscoveryResult"]] = relationship(back_populates="organization")
     root_cause_analyses: Mapped[list["RootCauseAnalysis"]] = relationship(back_populates="organization")
+    remediation_plans: Mapped[list["RemediationPlan"]] = relationship(back_populates="organization")
 
 
 class Role(Base):
@@ -393,6 +395,8 @@ class Recommendation(TimestampMixin, Base):
             "organization_id", "device_id", "root_cause_finding_id",
             "rule_id", "fingerprint", name="uq_recommendations_deterministic_identity",
         ),
+        UniqueConstraint("id", "organization_id", name="uq_recommendations_id_org"),
+        UniqueConstraint("id", "device_id", "organization_id", name="uq_recommendations_id_device_org"),
     )
     id: Mapped = uuid_pk()
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -478,6 +482,109 @@ class RepairAction(TimestampMixin, Base):
     device: Mapped[Device] = relationship()
     incident: Mapped[Incident | None] = relationship()
     recommendation: Mapped[Recommendation | None] = relationship()
+
+
+class RemediationPlan(TimestampMixin, Base):
+    __tablename__ = "remediation_plans"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_remediation_plans_id_org"),
+        UniqueConstraint("id", "device_id", "organization_id", name="uq_remediation_plans_id_device_org"),
+        Index("ix_remediation_plans_org_status", "organization_id", "status"),
+        ForeignKeyConstraint(["device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+                             name="fk_remediation_plans_device_org"),
+        ForeignKeyConstraint(["recommendation_id", "device_id", "organization_id"],
+                             ["recommendations.id", "recommendations.device_id", "recommendations.organization_id"],
+                             name="fk_remediation_plans_recommendation_org"),
+        ForeignKeyConstraint(["root_cause_finding_id", "device_id", "organization_id"],
+                             ["root_cause_findings.id", "root_cause_findings.device_id",
+                              "root_cause_findings.organization_id"],
+                             name="fk_remediation_plans_finding_org"),
+        UniqueConstraint("organization_id", "recommendation_id", name="uq_remediation_plans_org_recommendation"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    recommendation_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    root_cause_finding_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    created_by_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    approved_by_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[RemediationPlanStatus] = mapped_column(
+        Enum(RemediationPlanStatus, name="remediation_plan_status",
+             values_callable=lambda values: [item.value for item in values]),
+        default=RemediationPlanStatus.DRAFT, nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    plan_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verification_status: Mapped[RemediationVerificationStatus] = mapped_column(
+        Enum(RemediationVerificationStatus, name="remediation_verification_status",
+             values_callable=lambda values: [item.value for item in values]),
+        default=RemediationVerificationStatus.PENDING, nullable=False)
+    organization: Mapped[Organization] = relationship(back_populates="remediation_plans")
+    device: Mapped[Device] = relationship(overlaps="organization,remediation_plans")
+    recommendation: Mapped[Recommendation | None] = relationship(
+        foreign_keys=[recommendation_id, device_id, organization_id],
+        overlaps="organization,device,remediation_plans",
+    )
+    root_cause_finding: Mapped[RootCauseFinding | None] = relationship(
+        foreign_keys=[root_cause_finding_id, device_id, organization_id],
+        overlaps="organization,device,remediation_plans,recommendation",
+    )
+    actions: Mapped[list["RemediationAction"]] = relationship(back_populates="plan", cascade="all, delete-orphan")
+    verifications: Mapped[list["RemediationVerification"]] = relationship(back_populates="plan", cascade="all, delete-orphan")
+
+
+class RemediationAction(TimestampMixin, Base):
+    __tablename__ = "remediation_actions"
+    __table_args__ = (
+        UniqueConstraint("plan_id", "sequence", name="uq_remediation_actions_plan_sequence"),
+        ForeignKeyConstraint(["plan_id", "device_id", "organization_id"],
+                             ["remediation_plans.id", "remediation_plans.device_id",
+                              "remediation_plans.organization_id"],
+                             name="fk_remediation_actions_plan_org", ondelete="CASCADE"),
+        ForeignKeyConstraint(["device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+                             name="fk_remediation_actions_device_org"),
+    )
+    id: Mapped = uuid_pk()
+    plan_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    action_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    parameters: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[RemediationActionStatus] = mapped_column(
+        Enum(RemediationActionStatus, name="remediation_action_status",
+             values_callable=lambda values: [item.value for item in values]),
+        default=RemediationActionStatus.PENDING, nullable=False)
+    result: Mapped[dict | None] = mapped_column(JSON)
+    plan: Mapped[RemediationPlan] = relationship(back_populates="actions")
+
+
+class RemediationVerification(TimestampMixin, Base):
+    __tablename__ = "remediation_verifications"
+    __table_args__ = (
+        ForeignKeyConstraint(["plan_id", "device_id", "organization_id"],
+                             ["remediation_plans.id", "remediation_plans.device_id",
+                              "remediation_plans.organization_id"],
+                             name="fk_remediation_verifications_plan_org", ondelete="CASCADE"),
+        ForeignKeyConstraint(["device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+                             name="fk_remediation_verifications_device_org"),
+    )
+    id: Mapped = uuid_pk()
+    plan_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    check_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[RemediationVerificationStatus] = mapped_column(
+        Enum(RemediationVerificationStatus, name="remediation_verification_status",
+             values_callable=lambda values: [item.value for item in values]),
+        default=RemediationVerificationStatus.PENDING, nullable=False)
+    observed: Mapped[dict | None] = mapped_column(JSON)
+    details: Mapped[str | None] = mapped_column(Text)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    plan: Mapped[RemediationPlan] = relationship(back_populates="verifications")
 
 
 class Escalation(TimestampMixin, Base):

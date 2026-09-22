@@ -4,7 +4,7 @@ from .base import Base, GUID, TimestampMixin
 from .domain import (
     AuditEvent, BootstrapState, Device, DiagnosticResult, DiagnosticRun, DiscoveryJob, DiscoveryResult, Escalation,
     Incident, Organization, Recommendation, RepairAction, Role, User, UserRole,
-    RootCauseAnalysis, RootCauseFinding,
+    RootCauseAnalysis, RootCauseFinding, RemediationPlan, RemediationAction, RemediationVerification,
 )
 from .enums import (
     DeviceStatus, DiagnosticCheckType, DiagnosticResultSeverity, DiagnosticResultStatus,
@@ -13,6 +13,7 @@ from .enums import (
     RecommendationRemediationType, RecommendationSeverity, RecommendationStatus,
     ReconciliationStatus, RepairActionStatus, RootCauseAnalysisStatus, RootCauseFindingConfidence,
     RootCauseFindingSeverity, RootCauseFindingStatus, UserStatus,
+    RemediationPlanStatus, RemediationActionStatus, RemediationVerificationStatus,
 )
 
 __all__ = [
@@ -27,4 +28,6 @@ __all__ = [
     "DiagnosticCheckType",
     "RootCauseAnalysis", "RootCauseFinding", "RootCauseAnalysisStatus", "RootCauseFindingSeverity",
     "RootCauseFindingStatus", "RootCauseFindingConfidence",
+    "RemediationPlan", "RemediationAction", "RemediationVerification",
+    "RemediationPlanStatus", "RemediationActionStatus", "RemediationVerificationStatus",
 ]

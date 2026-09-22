@@ -8,6 +8,7 @@ from .endpoints.discovery import router as discovery_router
 from .endpoints.diagnostics import router as diagnostics_router
 from .endpoints.root_cause import router as root_cause_router
 from .endpoints.recommendations import router as recommendations_router
+from .endpoints.remediation import router as remediation_router
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 router.include_router(health_router)
@@ -18,6 +19,7 @@ router.include_router(discovery_router)
 router.include_router(diagnostics_router)
 router.include_router(root_cause_router)
 router.include_router(recommendations_router)
+router.include_router(remediation_router)
 
 
 @router.get("/status")

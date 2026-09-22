@@ -158,6 +158,37 @@ class RepairActionStatus(StrEnum):
     FAILED = "failed"
 
 
+class RemediationPlanStatus(StrEnum):
+    DRAFT = "draft"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    QUEUED = "queued"
+    EXECUTING = "executing"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    VERIFICATION_REQUIRED = "verification_required"
+    VERIFIED = "verified"
+
+
+class RemediationActionStatus(StrEnum):
+    PENDING = "pending"
+    READY = "ready"
+    EXECUTING = "executing"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    CANCELLED = "cancelled"
+
+
+class RemediationVerificationStatus(StrEnum):
+    PENDING = "pending"
+    PASSED = "passed"
+    FAILED = "failed"
+    INCONCLUSIVE = "inconclusive"
+
+
 class EscalationStatus(StrEnum):
     OPEN = "open"
     ACKNOWLEDGED = "acknowledged"
