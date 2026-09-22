@@ -7,6 +7,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
+from sqlalchemy.dialects.postgresql import ENUM as PostgreSQLEnum
 
 revision: str = "b8c9d0e1f2a3"
 down_revision: Union[str, None] = "a7b8c9d0e1f2"
@@ -27,11 +28,19 @@ def _enum(name, *values):
     return sa.Enum(*values, name=name)
 
 
-def upgrade() -> None:
-    health = _enum("health_status", "HEALTHY", "DEGRADED", "UNHEALTHY", "OFFLINE", "UNKNOWN")
-    bind = op.get_bind()
+def _health_enum(bind):
+    values = ("HEALTHY", "DEGRADED", "UNHEALTHY", "OFFLINE", "UNKNOWN")
     if bind.dialect.name == "postgresql":
-        health.create(bind, checkfirst=True)
+        return PostgreSQLEnum(*values, name="health_status", create_type=False)
+    return _enum("health_status", *values)
+
+
+def upgrade() -> None:
+    bind = op.get_bind()
+    health = _health_enum(bind)
+    if bind.dialect.name == "postgresql":
+        PostgreSQLEnum("HEALTHY", "DEGRADED", "UNHEALTHY", "OFFLINE", "UNKNOWN",
+                      name="health_status").create(bind, checkfirst=True)
     op.create_table(
         "monitoring_targets",
         sa.Column("id", MigrationUUID(), nullable=False),
@@ -119,6 +128,5 @@ def downgrade() -> None:
                  "ix_monitoring_targets_organization_id"):
         op.drop_index(name, table_name="monitoring_targets")
     op.drop_table("monitoring_targets")
-    bind = op.get_bind()
-    if bind.dialect.name == "postgresql":
-        sa.Enum(name="health_status").drop(bind, checkfirst=True)
+    # health_status is shared with ORM metadata and other migrations; do not
+    # drop it when removing the Phase 1L tables.
