@@ -5,12 +5,13 @@ from .domain import (
     AuditEvent, BootstrapState, Device, DiagnosticResult, DiagnosticRun, DiscoveryJob, DiscoveryResult, Escalation,
     Incident, Organization, Recommendation, RepairAction, Role, User, UserRole,
     RootCauseAnalysis, RootCauseFinding, RemediationPlan, RemediationAction, RemediationVerification,
+    Site, Network, Subnet, VLAN, WLAN, SSID,
 )
 from .enums import (
-    DeviceStatus, DiagnosticCheckType, DiagnosticResultSeverity, DiagnosticResultStatus,
-    DiagnosticRunStatus, DiscoveryJobStatus, DiscoveryResultStatus, EscalationStatus, IncidentPriority, IncidentSeverity,
-    IncidentStatus, OrganizationStatus, RecommendationConfidence, RecommendationPriority,
-    RecommendationRemediationType, RecommendationSeverity, RecommendationStatus,
+    AssetType, DeviceAssetType, DeviceCriticality, DeviceStatus, DiagnosticCheckType, DiagnosticResultSeverity,
+    DiagnosticResultStatus, DiagnosticRunStatus, DiscoveryJobStatus, DiscoveryResultStatus, EscalationStatus,
+    IncidentPriority, IncidentSeverity, IncidentStatus, OrganizationStatus, RecommendationConfidence,
+    RecommendationPriority, RecommendationRemediationType, RecommendationSeverity, RecommendationStatus,
     ReconciliationStatus, RepairActionStatus, RootCauseAnalysisStatus, RootCauseFindingConfidence,
     RootCauseFindingSeverity, RootCauseFindingStatus, UserStatus,
     RemediationPlanStatus, RemediationActionStatus, RemediationVerificationStatus,
@@ -18,10 +19,11 @@ from .enums import (
 
 __all__ = [
     "Base", "GUID", "TimestampMixin", "Organization", "Role", "User", "UserRole",
-    "Device", "DiscoveryJob", "DiscoveryResult", "Incident", "DiagnosticRun", "DiagnosticResult", "Recommendation",
+    "Device", "Site", "Network", "Subnet", "VLAN", "WLAN", "SSID", "DiscoveryJob", "DiscoveryResult", "Incident",
+    "DiagnosticRun", "DiagnosticResult", "Recommendation",
     "RepairAction", "Escalation", "AuditEvent", "BootstrapState", "DeviceStatus", "DiagnosticRunStatus",
     "EscalationStatus", "IncidentPriority", "IncidentSeverity", "IncidentStatus",
-    "OrganizationStatus", "RecommendationPriority", "RecommendationStatus",
+    "OrganizationStatus", "AssetType", "DeviceAssetType", "DeviceCriticality", "RecommendationPriority", "RecommendationStatus",
     "RecommendationSeverity", "RecommendationConfidence", "RecommendationRemediationType",
     "RepairActionStatus", "UserStatus", "DiagnosticResultStatus",
     "DiagnosticResultSeverity", "DiscoveryJobStatus", "DiscoveryResultStatus", "ReconciliationStatus",

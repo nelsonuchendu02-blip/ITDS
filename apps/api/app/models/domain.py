@@ -36,6 +36,7 @@ from .enums import (
     RootCauseFindingStatus,
     UserStatus,
     RemediationPlanStatus, RemediationActionStatus, RemediationVerificationStatus,
+    AssetType, DeviceCriticality,
 )
 
 
@@ -49,6 +50,11 @@ class Organization(TimestampMixin, Base):
     users: Mapped[list["User"]] = relationship(back_populates="organization")
     roles: Mapped[list["Role"]] = relationship(back_populates="organization")
     devices: Mapped[list["Device"]] = relationship(back_populates="organization")
+    sites: Mapped[list["Site"]] = relationship(back_populates="organization")
+    networks: Mapped[list["Network"]] = relationship(back_populates="organization")
+    subnets: Mapped[list["Subnet"]] = relationship(back_populates="organization")
+    vlans: Mapped[list["VLAN"]] = relationship(back_populates="organization")
+    wlans: Mapped[list["WLAN"]] = relationship(back_populates="organization")
     incidents: Mapped[list["Incident"]] = relationship(back_populates="organization")
     diagnostic_runs: Mapped[list["DiagnosticRun"]] = relationship(back_populates="organization")
     recommendations: Mapped[list["Recommendation"]] = relationship(back_populates="organization")
@@ -102,18 +108,140 @@ class Device(TimestampMixin, Base):
         UniqueConstraint("id", "organization_id", name="uq_devices_id_organization"),
         UniqueConstraint("organization_id", "hostname", name="uq_devices_org_hostname"),
         Index("ix_devices_last_seen_at", "last_seen_at"),
+        ForeignKeyConstraint(["site_id", "organization_id"], ["sites.id", "sites.organization_id"],
+                             name="fk_devices_site_org"),
+        ForeignKeyConstraint(["network_id", "organization_id"], ["networks.id", "networks.organization_id"],
+                             name="fk_devices_network_org"),
+        ForeignKeyConstraint(["subnet_id", "organization_id"], ["subnets.id", "subnets.organization_id"],
+                             name="fk_devices_subnet_org"),
+        ForeignKeyConstraint(["vlan_id", "organization_id"], ["vlans.id", "vlans.organization_id"],
+                             name="fk_devices_vlan_org"),
+        ForeignKeyConstraint(["wlan_id", "organization_id"], ["wlans.id", "wlans.organization_id"],
+                             name="fk_devices_wlan_org"),
+        ForeignKeyConstraint(["assigned_user_id", "organization_id"], ["users.id", "users.organization_id"],
+                             name="fk_devices_assigned_user_org"),
     )
     id: Mapped = uuid_pk()
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     hostname: Mapped[str] = mapped_column(String(255), nullable=False)
     device_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    asset_type: Mapped[AssetType | None] = mapped_column(
+        Enum(AssetType, name="asset_type"), nullable=True, index=True
+    )
     operating_system: Mapped[str] = mapped_column(String(200), nullable=False)
+    operating_system_version: Mapped[str | None] = mapped_column(String(100))
     ip_address: Mapped[str | None] = mapped_column(String(45))
+    ipv6_address: Mapped[str | None] = mapped_column(String(45))
+    management_ip: Mapped[str | None] = mapped_column(String(45))
+    asset_tag: Mapped[str | None] = mapped_column(String(100))
+    serial_number: Mapped[str | None] = mapped_column(String(255))
+    manufacturer: Mapped[str | None] = mapped_column(String(200))
+    model: Mapped[str | None] = mapped_column(String(200))
+    firmware_version: Mapped[str | None] = mapped_column(String(100))
+    bios_version: Mapped[str | None] = mapped_column(String(100))
+    mac_address: Mapped[str | None] = mapped_column(String(17))
+    cpu: Mapped[str | None] = mapped_column(String(200))
+    memory: Mapped[str | None] = mapped_column(String(100))
+    storage: Mapped[str | None] = mapped_column(String(200))
+    criticality: Mapped[DeviceCriticality | None] = mapped_column(
+        Enum(DeviceCriticality, name="device_criticality"), nullable=True, index=True
+    )
+    discovery_source: Mapped[str | None] = mapped_column(String(100))
+    location: Mapped[str | None] = mapped_column(String(500))
+    purchase_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    warranty_expiration: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    site_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    network_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    subnet_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    vlan_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    wlan_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    assigned_user_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
     status: Mapped[DeviceStatus] = mapped_column(
         Enum(DeviceStatus, name="device_status"), default=DeviceStatus.ACTIVE, nullable=False, index=True
     )
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     organization: Mapped[Organization] = relationship(back_populates="devices")
+
+
+class Site(TimestampMixin, Base):
+    __tablename__ = "sites"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_sites_id_organization"),
+        UniqueConstraint("organization_id", "name", name="uq_sites_org_name"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    address: Mapped[str | None] = mapped_column(String(500))
+    organization: Mapped[Organization] = relationship(back_populates="sites")
+
+
+class Network(TimestampMixin, Base):
+    __tablename__ = "networks"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_networks_id_organization"),
+        UniqueConstraint("organization_id", "name", name="uq_networks_org_name"),
+        ForeignKeyConstraint(["site_id", "organization_id"], ["sites.id", "sites.organization_id"],
+                             name="fk_networks_site_org"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    site_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    organization: Mapped[Organization] = relationship(back_populates="networks")
+
+
+class Subnet(TimestampMixin, Base):
+    __tablename__ = "subnets"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_subnets_id_organization"),
+        UniqueConstraint("organization_id", "cidr", name="uq_subnets_org_cidr"),
+        ForeignKeyConstraint(["network_id", "organization_id"], ["networks.id", "networks.organization_id"],
+                             name="fk_subnets_network_org"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    network_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    cidr: Mapped[str] = mapped_column(String(64), nullable=False)
+    gateway: Mapped[str | None] = mapped_column(String(45))
+    organization: Mapped[Organization] = relationship(back_populates="subnets")
+
+
+class VLAN(TimestampMixin, Base):
+    __tablename__ = "vlans"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_vlans_id_organization"),
+        UniqueConstraint("organization_id", "vlan_id", name="uq_vlans_org_vlan_id"),
+        ForeignKeyConstraint(["network_id", "organization_id"], ["networks.id", "networks.organization_id"],
+                             name="fk_vlans_network_org"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    network_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    vlan_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    organization: Mapped[Organization] = relationship(back_populates="vlans")
+
+
+class WLAN(TimestampMixin, Base):
+    __tablename__ = "wlans"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_wlans_id_organization"),
+        UniqueConstraint("organization_id", "ssid", name="uq_wlans_org_ssid"),
+        ForeignKeyConstraint(["network_id", "organization_id"], ["networks.id", "networks.organization_id"],
+                             name="fk_wlans_network_org"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    network_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    ssid: Mapped[str] = mapped_column(String(32), nullable=False)
+    security: Mapped[str | None] = mapped_column(String(100))
+    organization: Mapped[Organization] = relationship(back_populates="wlans")
+
+
+SSID = WLAN
 
 
 class DiscoveryJob(TimestampMixin, Base):

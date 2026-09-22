@@ -46,6 +46,11 @@ from .incident import (
     IncidentCreate, IncidentUpdate, IncidentAssignment, IncidentResolution,
     IncidentRead, IncidentPage, EscalationCreate, EscalationRead,
 )
+from .inventory import (
+    AssetCreate, AssetRead, AssetUpdate, NetworkCreate, NetworkRead, NetworkUpdate,
+    SiteCreate, SiteRead, SiteUpdate, SSIDCreate, SSIDRead, SSIDUpdate,
+    SubnetCreate, SubnetRead, SubnetUpdate, VLANCreate, VLANRead, VLANUpdate,
+)
 
 __all__ = [
     "CurrentUserRead",
@@ -87,4 +92,10 @@ __all__ = [
     "RemediationGenerate", "RemediationActionRead", "RemediationVerificationRead", "RemediationPlanRead",
     "IncidentCreate", "IncidentUpdate", "IncidentAssignment", "IncidentResolution",
     "IncidentRead", "IncidentPage", "EscalationCreate", "EscalationRead",
+    "AssetCreate", "AssetRead", "AssetUpdate",
+    "SiteCreate", "SiteRead", "SiteUpdate",
+    "NetworkCreate", "NetworkRead", "NetworkUpdate",
+    "SubnetCreate", "SubnetRead", "SubnetUpdate",
+    "VLANCreate", "VLANRead", "VLANUpdate",
+    "SSIDCreate", "SSIDRead", "SSIDUpdate",
 ]

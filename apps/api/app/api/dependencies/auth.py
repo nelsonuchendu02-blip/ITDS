@@ -108,3 +108,9 @@ def get_recommendation_service():
     from ...services.recommendation import RecommendationService
 
     return RecommendationService()
+
+
+def get_inventory_service():
+    from ...services.inventory import InventoryService
+
+    return InventoryService()

@@ -1,6 +1,32 @@
 from enum import StrEnum
 
 
+class AssetType(StrEnum):
+    LAPTOP = "laptop"
+    DESKTOP = "desktop"
+    MOBILE_PHONE = "mobile_phone"
+    TABLET = "tablet"
+    SERVER = "server"
+    ACCESS_POINT = "access_point"
+    SWITCH = "switch"
+    FIREWALL = "firewall"
+    ROUTER = "router"
+    PRINTER = "printer"
+    NETWORK_DEVICE = "network_device"
+    IOT = "iot"
+    OTHER = "other"
+
+
+DeviceAssetType = AssetType
+
+
+class DeviceCriticality(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
 class DeviceStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"

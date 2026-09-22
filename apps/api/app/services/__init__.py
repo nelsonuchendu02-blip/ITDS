@@ -8,6 +8,7 @@ from .management import ManagementService
 from .auth import AuthenticationService
 from .root_cause import RootCauseService
 from .incident import IncidentService
+from .inventory import InventoryService
 
 __all__ = [
     "AuthenticationService",
@@ -16,5 +17,5 @@ __all__ = [
     "DiscoveryService",
     "ManagementService",
     "OrganizationService",
-    "RootCauseService", "IncidentService",
+    "RootCauseService", "IncidentService", "InventoryService",
 ]
