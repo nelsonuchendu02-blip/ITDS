@@ -80,7 +80,10 @@ class UserRole(Base):
 
 class User(TimestampMixin, Base):
     __tablename__ = "users"
-    __table_args__ = (UniqueConstraint("organization_id", "email", name="uq_users_org_email"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "email", name="uq_users_org_email"),
+        UniqueConstraint("id", "organization_id", name="uq_users_id_organization"),
+    )
     id: Mapped = uuid_pk()
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(320), nullable=False)
@@ -168,29 +171,58 @@ class DiscoveryResult(TimestampMixin, Base):
 class Incident(TimestampMixin, Base):
     __tablename__ = "incidents"
     __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_incidents_id_organization"),
+        ForeignKeyConstraint(["device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+                             name="fk_incidents_device_org"),
+        ForeignKeyConstraint(["assigned_user_id", "organization_id"], ["users.id", "users.organization_id"],
+                             name="fk_incidents_assigned_user_org"),
+        ForeignKeyConstraint(["created_by_user_id", "organization_id"], ["users.id", "users.organization_id"],
+                             name="fk_incidents_created_by_user_org"),
+        ForeignKeyConstraint(["resolved_by_user_id", "organization_id"], ["users.id", "users.organization_id"],
+                             name="fk_incidents_resolved_by_user_org"),
+        ForeignKeyConstraint(["closed_by_user_id", "organization_id"], ["users.id", "users.organization_id"],
+                             name="fk_incidents_closed_by_user_org"),
         Index("ix_incidents_status_severity_priority", "status", "severity", "priority"),
         Index("ix_incidents_opened_at", "opened_at"),
     )
     id: Mapped = uuid_pk()
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    device_id: Mapped = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"), nullable=True, index=True)
-    assigned_user_id: Mapped = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    device_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    assigned_user_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False, default="Diagnostic result")
     description: Mapped[str | None] = mapped_column(Text)
     severity: Mapped[IncidentSeverity] = mapped_column(
-        Enum(IncidentSeverity, name="incident_severity"), default=IncidentSeverity.MEDIUM, nullable=False, index=True
+        Enum(IncidentSeverity, name="incident_severity",
+             values_callable=lambda values: [item.name for item in values]),
+        default=IncidentSeverity.MEDIUM, nullable=False, index=True
     )
     priority: Mapped[IncidentPriority] = mapped_column(
-        Enum(IncidentPriority, name="incident_priority"), default=IncidentPriority.MEDIUM, nullable=False, index=True
+        Enum(IncidentPriority, name="incident_priority",
+             values_callable=lambda values: [item.name for item in values]),
+        default=IncidentPriority.MEDIUM, nullable=False, index=True
     )
     status: Mapped[IncidentStatus] = mapped_column(
-        Enum(IncidentStatus, name="incident_status"), default=IncidentStatus.OPEN, nullable=False, index=True
+        Enum(IncidentStatus, name="incident_status",
+             values_callable=lambda values: [item.name for item in values]),
+        default=IncidentStatus.OPEN, nullable=False, index=True
     )
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by_user_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    resolved_by_user_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    resolution_summary: Mapped[str | None] = mapped_column(Text)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_by_user_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
     organization: Mapped[Organization] = relationship(back_populates="incidents")
     device: Mapped[Device | None] = relationship(foreign_keys=[device_id])
-    assigned_user: Mapped[User | None] = relationship()
+    assigned_user: Mapped[User | None] = relationship(
+        foreign_keys=[assigned_user_id], overlaps="organization,incidents",
+    )
+    escalations: Mapped[list["Escalation"]] = relationship(
+        back_populates="incident", cascade="all, delete-orphan",
+        overlaps="organization,escalations",
+    )
 
 
 class DiagnosticRun(TimestampMixin, Base):
@@ -589,19 +621,31 @@ class RemediationVerification(TimestampMixin, Base):
 
 class Escalation(TimestampMixin, Base):
     __tablename__ = "escalations"
+    __table_args__ = (
+        ForeignKeyConstraint(["incident_id", "organization_id"],
+                             ["incidents.id", "incidents.organization_id"],
+                             name="fk_escalations_incident_org", ondelete="CASCADE"),
+        UniqueConstraint("organization_id", "incident_id", "escalation_level",
+                         name="uq_escalations_incident_level"),
+    )
     id: Mapped = uuid_pk()
     organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    incident_id: Mapped = mapped_column(ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True)
+    incident_id: Mapped[UUID] = mapped_column(nullable=False, index=True)
     escalation_level: Mapped[int] = mapped_column(nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[EscalationStatus] = mapped_column(
-        Enum(EscalationStatus, name="escalation_status"), default=EscalationStatus.OPEN, nullable=False, index=True
+        Enum(EscalationStatus, name="escalation_status",
+             values_callable=lambda values: [item.name for item in values]),
+        default=EscalationStatus.OPEN, nullable=False, index=True
     )
     assigned_to: Mapped[str | None] = mapped_column(String(255))
     escalated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     organization: Mapped[Organization] = relationship(back_populates="escalations")
-    incident: Mapped[Incident] = relationship()
+    incident: Mapped[Incident] = relationship(
+        back_populates="escalations", foreign_keys=[incident_id],
+        overlaps="organization,escalations",
+    )
 
 
 class AuditEvent(Base):

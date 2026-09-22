@@ -42,6 +42,10 @@ from .root_cause import (
 )
 from .recommendation import RecommendationCreate, RecommendationGenerate, RecommendationPage, RecommendationPageMeta, RecommendationRead
 from .remediation import RemediationGenerate, RemediationActionRead, RemediationVerificationRead, RemediationPlanRead
+from .incident import (
+    IncidentCreate, IncidentUpdate, IncidentAssignment, IncidentResolution,
+    IncidentRead, IncidentPage, EscalationCreate, EscalationRead,
+)
 
 __all__ = [
     "CurrentUserRead",
@@ -81,4 +85,6 @@ __all__ = [
     "RecommendationCreate", "RecommendationRead", "RecommendationPage", "RecommendationPageMeta",
     "RecommendationGenerate",
     "RemediationGenerate", "RemediationActionRead", "RemediationVerificationRead", "RemediationPlanRead",
+    "IncidentCreate", "IncidentUpdate", "IncidentAssignment", "IncidentResolution",
+    "IncidentRead", "IncidentPage", "EscalationCreate", "EscalationRead",
 ]
