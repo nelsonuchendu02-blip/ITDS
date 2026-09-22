@@ -393,7 +393,8 @@ def test_phase_1j_postgresql_constraint_lifecycle(monkeypatch: pytest.MonkeyPatc
     config = _alembic_config()
     engine = create_engine(database_url)
     try:
-        command.downgrade(config, "c8d3e5f7a901")
+        command.downgrade(config, "base")
+        command.upgrade(config, "c8d3e5f7a901")
         command.upgrade(config, "head")
         inspector = inspect(engine)
         for table_name, constraint_name in (
@@ -421,6 +422,18 @@ def test_phase_1j_postgresql_constraint_lifecycle(monkeypatch: pytest.MonkeyPatc
             tuple(foreign_key["constrained_columns"])
             for foreign_key in inspector.get_foreign_keys("remediation_actions")
         }
+        command.downgrade(config, "c8d3e5f7a901")
+        downgraded_tables = set(inspect(engine).get_table_names())
+        assert "remediation_plans" not in downgraded_tables
+        assert "remediation_actions" not in downgraded_tables
+        assert "remediation_verifications" not in downgraded_tables
+        command.upgrade(config, "head")
+        upgraded_tables = set(inspect(engine).get_table_names())
+        assert {
+            "remediation_plans",
+            "remediation_actions",
+            "remediation_verifications",
+        } <= upgraded_tables
     finally:
         engine.dispose()
         get_settings.cache_clear()
