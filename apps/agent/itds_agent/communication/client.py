@@ -17,6 +17,11 @@ class AgentAuthenticationError(AgentCommunicationError):
 class AgentRetryableError(AgentCommunicationError):
     """A bounded, potentially transient transport failure."""
 
+
+API_PREFIX = "/api/v1"
+HEARTBEAT_PATH = f"{API_PREFIX}/agents/heartbeat"
+
+
 class Transport(Protocol):
     def send(
         self,
@@ -100,7 +105,7 @@ class AgentClient:
         for attempt in range(attempts):
             try:
                 return self.transport.send(
-                    "/agents/heartbeat",
+                    HEARTBEAT_PATH,
                     payload,
                     headers={"X-Agent-Credential": self.credential},
                     timeout=self.request_timeout_seconds,

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 
@@ -7,6 +8,7 @@ from itds_agent.communication.client import (
     AgentAuthenticationError,
     AgentClient,
     AgentRetryableError,
+    HEARTBEAT_PATH,
     HttpxTransport,
 )
 from itds_agent.config.settings import AgentSettings
@@ -48,9 +50,18 @@ def test_client_sends_credential_header_and_bounds_timeout():
     )
     assert result == {"accepted": True}
     path, _, headers, timeout = transport.calls[0]
-    assert path == "/agents/heartbeat"
+    assert path == "/api/v1/agents/heartbeat"
+    assert path == HEARTBEAT_PATH
     assert headers == {"X-Agent-Credential": "cred-prefix.secret"}
     assert timeout == 7
+
+
+def test_heartbeat_path_uses_the_versioned_api_prefix():
+    """Fails against a bare '/agents/heartbeat' path; passes only with '/api/v1'."""
+    transport = FakeTransport([])
+    AgentClient(transport, "prefix.secret").heartbeat({})
+    path = transport.calls[0][0]
+    assert path == "/api/v1/agents/heartbeat"
 
 
 def test_client_retries_transient_failures_with_a_bound(monkeypatch):
@@ -74,6 +85,49 @@ def test_client_does_not_retry_authentication_failures():
 def test_https_transport_rejects_insecure_urls():
     with pytest.raises(ValueError):
         HttpxTransport("http://api.example.test")
+
+
+def test_https_transport_constructs_the_heartbeat_url(monkeypatch):
+    captured = {}
+
+    def fake_post(url, *, json, headers, timeout, follow_redirects):
+        captured["url"] = url
+
+        class Response:
+            status_code = 200
+            content = b'{"accepted": true}'
+
+            def json(self):
+                return {"accepted": True}
+
+        return Response()
+
+    monkeypatch.setattr("itds_agent.communication.client.httpx.post", fake_post)
+    transport = HttpxTransport("https://server.example.com")
+    transport.send(HEARTBEAT_PATH, {}, headers={}, timeout=5)
+    assert captured["url"] == "https://server.example.com/api/v1/agents/heartbeat"
+
+
+def test_https_transport_normalizes_a_trailing_slash_base_url(monkeypatch):
+    captured = {}
+
+    def fake_post(url, *, json, headers, timeout, follow_redirects):
+        captured["url"] = url
+
+        class Response:
+            status_code = 200
+            content = b'{"accepted": true}'
+
+            def json(self):
+                return {"accepted": True}
+
+        return Response()
+
+    monkeypatch.setattr("itds_agent.communication.client.httpx.post", fake_post)
+    transport = HttpxTransport("https://server.example.com/")
+    transport.send(HEARTBEAT_PATH, {}, headers={}, timeout=5)
+    assert captured["url"] == "https://server.example.com/api/v1/agents/heartbeat"
+    assert "//api/v1" not in captured["url"]
 
 
 def test_system_collector_returns_safe_bounded_metrics(monkeypatch):
@@ -115,4 +169,3 @@ def test_runtime_enters_error_without_hanging_on_heartbeat_failure():
     runtime = AgentRuntime(settings(), lambda payload: (_ for _ in ()).throw(RuntimeError("failed")))
     assert runtime.run(max_cycles=1) == 1
     assert runtime.state is RuntimeState.ERROR
-from pathlib import Path
