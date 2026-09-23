@@ -26,7 +26,7 @@ The repository separates responsibilities across application domains:
 
 - `apps/api` exposes the FastAPI backend and health endpoint
 - `apps/web` hosts a Vite + React + TypeScript frontend shell
-- `apps/agent` defines the future Windows endpoint agent architecture
+- `apps/agent` provides the Phase 1M read-only Windows endpoint agent foundation
 - `database` holds migration and seed structure for PostgreSQL support
 - `automation/powershell` defines standards for safe PowerShell automation
 - `docs` documents architecture, API, security, and operating assumptions

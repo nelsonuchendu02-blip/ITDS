@@ -37,6 +37,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             "roles:assign",
             "audit:read",
             "monitoring:read", "monitoring:create", "monitoring:manage", "monitoring:ingest",
+            "agents:read", "agents:create", "agents:manage", "agents:rotate",
         }
     ),
     "it_support": frozenset(
@@ -45,7 +46,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
          "discovery:read", "discovery:run",
          "root_cause:read", "root_cause:run", "recommendations:read", "recommendations:run",
          "incidents:read", "incidents:create", "escalations:read", "escalations:create",
-         "monitoring:read", "monitoring:create", "monitoring:ingest"}
+         "monitoring:read", "monitoring:create", "monitoring:ingest", "agents:read"}
     ),
     "technician": frozenset({"devices:read", "devices:write", "assets:read", "assets:create",
                              "networks:read", "networks:create", "diagnostics:read", "diagnostics:run",
@@ -53,8 +54,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
                              "recommendations:run", "remediation:read", "remediation:create",
                              "remediation:verify", "incidents:read", "incidents:create",
                              "incidents:assign", "escalations:read", "escalations:create",
-                             "monitoring:read", "monitoring:create", "monitoring:ingest"}),
-    "viewer": frozenset({"users:read", "devices:read", "assets:read", "networks:read", "monitoring:read"}),
+                             "monitoring:read", "monitoring:create", "monitoring:ingest", "agents:read"}),
+    "viewer": frozenset({"users:read", "devices:read", "assets:read", "networks:read", "monitoring:read", "agents:read"}),
 }
 ORG_CROSS_SCOPE_PERMISSION = "organizations:cross_scope"
 

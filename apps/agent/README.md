@@ -1,6 +1,9 @@
 # Windows agent foundation
 
-This package establishes the module boundaries for the future Windows endpoint agent without implementing operational automation.
+Phase 1M provides a safe endpoint foundation: read-only stdlib collectors, an injectable
+communication transport, and a lifecycle runtime. It intentionally contains no subprocess,
+shell, PowerShell, WMI, SSH, network scanning, repair, or service-installation behavior.
+Credentials are supplied by the server enrollment flow and must not be logged.
 
 ## Current structure
 

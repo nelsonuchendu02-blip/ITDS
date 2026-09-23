@@ -41,6 +41,14 @@ class HealthStatus(StrEnum):
     UNKNOWN = "unknown"
 
 
+class AgentStatus(StrEnum):
+    PENDING = "pending"
+    ACTIVE = "active"
+    OFFLINE = "offline"
+    REVOKED = "revoked"
+    RETIRED = "retired"
+
+
 class DiscoveryJobStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
