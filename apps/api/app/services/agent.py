@@ -179,10 +179,6 @@ class AgentService:
             telemetry = self.monitoring.ingest_for_agent(
                 session, target, agent.organization_id, telemetry_payload)
 
-        record_security_event(
-            session, event_type="agent_heartbeat", organization_id=agent.organization_id, actor_user_id=None,
-            action="heartbeat", result="success", resource_type="agent", resource_id=str(agent.id),
-        )
         session.commit()
         session.refresh(agent)
         return agent, telemetry

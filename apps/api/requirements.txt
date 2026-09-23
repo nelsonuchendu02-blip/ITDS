@@ -10,3 +10,4 @@ psycopg[binary]==3.2.3
 PyJWT[crypto]==2.14.0
 pwdlib[argon2]==0.3.1
 python-multipart==0.0.20
+psutil==6.1.1
