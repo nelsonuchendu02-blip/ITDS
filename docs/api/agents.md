@@ -16,5 +16,8 @@ from the credential. Human management routes are `GET /agents`, `GET /agents/{id
 and `POST /agents/{id}/credentials/rotate`. All management routes require one
 of `agents:read`, `agents:create`, `agents:manage`, or `agents:rotate`.
 
-The agent package is deliberately read-only and stdlib-only: no shell,
-PowerShell, WMI, SSH, scanning, repair, or service installation is implemented.
+The agent package is deliberately read-only. It uses `psutil` for safe local
+system metrics and `httpx` for HTTPS communication authenticated with
+`X-Agent-Credential`. Requests have bounded payloads, timeouts, and retries.
+No shell, PowerShell, WMI, SSH, scanning, repair, or service installation is
+implemented.

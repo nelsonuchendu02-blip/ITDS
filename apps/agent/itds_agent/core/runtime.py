@@ -23,6 +23,9 @@ class AgentRuntime:
     network_collector: NetworkCollector = field(default_factory=NetworkCollector)
     _stop_event: Event = field(default_factory=Event, init=False, repr=False)
 
+    def __post_init__(self) -> None:
+        self.system_collector.agent_version = self.settings.agent_version
+
     @property
     def running(self) -> bool:
         return self.state is RuntimeState.RUNNING
@@ -35,6 +38,7 @@ class AgentRuntime:
             network = self.network_collector.collect()
             return self.heartbeat({
                 "observed_at": datetime.now(timezone.utc).isoformat(),
+                "agent_version": self.settings.agent_version,
                 "hostname": network.get("hostname") or system.get("hostname"),
                 "platform": system.get("platform"),
                 "local_ip": network.get("local_ip"),

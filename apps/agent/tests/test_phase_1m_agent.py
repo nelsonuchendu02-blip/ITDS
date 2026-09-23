@@ -29,9 +29,16 @@ def settings() -> AgentSettings:
     return AgentSettings(
         api_base_url="https://api.example.test",
         credential="cred-prefix.secret",
+        agent_version="9.9.9",
         heartbeat_interval_seconds=10,
         request_timeout_seconds=7,
     )
+
+
+def test_standalone_dependency_definition_is_complete():
+    requirements = (Path(__file__).parents[1] / "requirements.txt").read_text()
+    assert "httpx==0.27.0" in requirements
+    assert "psutil==6.1.1" in requirements
 
 
 def test_client_sends_credential_header_and_bounds_timeout():
@@ -101,9 +108,11 @@ def test_runtime_runs_bounded_cycles_and_stops():
     assert runtime.state is RuntimeState.STOPPED
     assert len(calls) == 2
     assert waits == [10]
+    assert all(call["agent_version"] == "9.9.9" for call in calls)
 
 
 def test_runtime_enters_error_without_hanging_on_heartbeat_failure():
     runtime = AgentRuntime(settings(), lambda payload: (_ for _ in ()).throw(RuntimeError("failed")))
     assert runtime.run(max_cycles=1) == 1
     assert runtime.state is RuntimeState.ERROR
+from pathlib import Path

@@ -26,6 +26,10 @@ def _as_utc(value: datetime) -> datetime:
     return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
 
+def _newer_timestamp(current: datetime | None, observed: datetime) -> bool:
+    return current is None or _as_utc(observed) > _as_utc(current)
+
+
 class AgentService:
     def __init__(self, monitoring: MonitoringService | None = None):
         self.monitoring = monitoring or MonitoringService()
@@ -140,7 +144,8 @@ class AgentService:
 
         if values.get("agent_version"):
             agent.agent_version = values["agent_version"]
-        agent.last_seen_at = observed
+        if _newer_timestamp(agent.last_seen_at, observed):
+            agent.last_seen_at = observed
         agent.last_ip_address = request_ip
         if agent.status in (AgentStatus.PENDING, AgentStatus.OFFLINE):
             agent.status = AgentStatus.ACTIVE
@@ -156,7 +161,8 @@ class AgentService:
                     device.operating_system = values["platform"]
                 if values.get("local_ip"):
                     device.ip_address = values["local_ip"]
-                device.last_seen_at = observed
+                if _newer_timestamp(device.last_seen_at, observed):
+                    device.last_seen_at = observed
 
         target = session.scalar(select(MonitoringTarget).where(
             MonitoringTarget.organization_id == agent.organization_id,
@@ -164,6 +170,7 @@ class AgentService:
         )) if agent.device_id is not None else None
         telemetry = None
         if target is not None and target.enabled:
+            metrics = values.get("metrics", {})
             telemetry_payload = TelemetryCreate(
                 observed_at=observed,
                 health_status=values.get("health_status"),
@@ -173,8 +180,13 @@ class AgentService:
                     "hostname": values.get("hostname"),
                     "platform": values.get("platform"),
                     "local_ip": values.get("local_ip"),
-                    "metrics": values.get("metrics", {}),
+                    "agent_version": values.get("agent_version"),
+                    "metrics": metrics,
                 },
+                cpu_percent=metrics.get("cpu_percent"),
+                memory_percent=metrics.get("memory_percent"),
+                disk_percent=metrics.get("disk_percent"),
+                uptime_seconds=metrics.get("uptime_seconds"),
             ).model_dump()
             telemetry = self.monitoring.ingest_for_agent(
                 session, target, agent.organization_id, telemetry_payload)
