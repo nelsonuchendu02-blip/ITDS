@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Dashboard } from './Dashboard'
 
 const mockUsePermission = vi.fn<(permission: string) => boolean>()
@@ -78,6 +78,10 @@ function mockResources(
 }
 
 describe('Dashboard', () => {
+  afterEach(() => {
+    mockUsePermission.mockReset()
+  })
+
   it('renders KPIs sourced from the overview endpoint and refreshes all resources', () => {
     mockUsePermission.mockReturnValue(true)
     mockResources()
@@ -102,6 +106,19 @@ describe('Dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
     for (const spy of refreshSpies) {
       expect(spy).toHaveBeenCalled()
+    }
+  })
+
+  it('does not manually refresh dashboard resources that the user cannot read', () => {
+    mockUsePermission.mockImplementation((permission) => permission === 'devices:read')
+    mockResources()
+
+    render(<Dashboard />)
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+
+    expect(refreshSpies[0]).toHaveBeenCalled()
+    for (const spy of refreshSpies.slice(1)) {
+      expect(spy).not.toHaveBeenCalled()
     }
   })
 

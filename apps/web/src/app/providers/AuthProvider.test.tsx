@@ -31,6 +31,7 @@ function AuthProbe() {
 describe('AuthProvider', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it('authenticates through token then current-user endpoints and keeps the bearer token out of web storage', async () => {
