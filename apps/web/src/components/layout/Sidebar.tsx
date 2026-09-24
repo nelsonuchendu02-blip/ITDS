@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { NAV_ENTRIES } from '../../utils/navigation'
-import { usePermission } from '../../hooks/usePermission'
+import { useAnyPermission } from '../../hooks/usePermission'
 
 function NavItem({ path, label }: { path: string; label: string }) {
   return (
@@ -10,8 +10,8 @@ function NavItem({ path, label }: { path: string; label: string }) {
   )
 }
 
-function GatedNavItem({ path, label, permission }: { path: string; label: string; permission: string }) {
-  const allowed = usePermission(permission)
+function GatedNavItem({ path, label, permission }: { path: string; label: string; permission: string | string[] }) {
+  const allowed = useAnyPermission(Array.isArray(permission) ? permission : [permission])
   if (!allowed) return null
   return <NavItem path={path} label={label} />
 }

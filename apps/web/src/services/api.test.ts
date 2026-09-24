@@ -55,4 +55,85 @@ describe('ApiClient', () => {
       code: 'network_error',
     })
   })
+
+  describe('timeout and cancellation', () => {
+    it('aborts the request and reports a timeout ApiError when the timeout elapses', async () => {
+      fetchMock.mockImplementation((_url: string, init: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            const error = new DOMException('Aborted', 'AbortError')
+            reject(error)
+          })
+        })
+      })
+      const client = new ApiClient('https://example.com', () => null)
+
+      const promise = client.request('GET', '/devices', { timeoutMs: 5 })
+
+      await expect(promise).rejects.toMatchObject({ name: 'ApiError', code: 'timeout' })
+    })
+
+    it('cancels the request when the caller aborts, without reporting a timeout', async () => {
+      const callerController = new AbortController()
+      fetchMock.mockImplementation((_url: string, init: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          })
+        })
+      })
+      const client = new ApiClient('https://example.com', () => null)
+
+      const promise = client.request('GET', '/devices', { signal: callerController.signal, timeoutMs: 60_000 })
+      callerController.abort()
+
+      await expect(promise).rejects.toMatchObject({ name: 'ApiError', code: 'cancelled' })
+    })
+
+    it('does not report caller cancellation as a timeout', async () => {
+      const callerController = new AbortController()
+      fetchMock.mockImplementation((_url: string, init: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+        })
+      })
+      const client = new ApiClient('https://example.com', () => null)
+
+      const promise = client.request('GET', '/devices', { signal: callerController.signal, timeoutMs: 60_000 })
+      callerController.abort()
+
+      const error = (await promise.catch((err: unknown) => err)) as ApiError
+      expect(error.code).not.toBe('timeout')
+      expect(error.code).toBe('cancelled')
+    })
+
+    it('does not report a genuine timeout as a cancellation', async () => {
+      fetchMock.mockImplementation((_url: string, init: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+        })
+      })
+      const client = new ApiClient('https://example.com', () => null)
+
+      const error = (await client.request('GET', '/devices', { timeoutMs: 5 }).catch((err: unknown) => err)) as ApiError
+      expect(error.code).not.toBe('cancelled')
+      expect(error.code).toBe('timeout')
+    })
+
+    it('cleans up the timeout timer and the caller-abort listener after the request settles', async () => {
+      const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
+      const callerController = new AbortController()
+      const removeEventListenerSpy = vi.spyOn(callerController.signal, 'removeEventListener')
+      fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+      const client = new ApiClient('https://example.com', () => null)
+
+      await client.request('GET', '/devices', { signal: callerController.signal })
+
+      expect(clearTimeoutSpy).toHaveBeenCalled()
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('abort', expect.any(Function))
+
+      clearTimeoutSpy.mockRestore()
+      removeEventListenerSpy.mockRestore()
+    })
+  })
 })

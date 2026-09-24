@@ -2,8 +2,7 @@ import { useMemo } from 'react'
 import { useAuth } from '../app/providers/AuthProvider'
 import { usePermission } from '../hooks/usePermission'
 import { usePolledResource } from '../hooks/usePolledResource'
-import { fetchMonitoringSummary } from '../services/monitoring'
-import { listDevices } from '../services/devices'
+import { fetchDashboardOverview } from '../services/dashboard'
 import { listAgents } from '../services/agents'
 import { listIncidents } from '../services/incidents'
 import { listDiscoveryJobs } from '../services/discovery'
@@ -26,9 +25,17 @@ export function Dashboard() {
   const canReadIncidents = usePermission('incidents:read')
   const canReadDiscovery = usePermission('discovery:read')
   const canReadRecommendations = usePermission('recommendations:read')
+  const canReadDashboard =
+    canReadDevices || canReadMonitoring || canReadAgents || canReadIncidents || canReadDiscovery || canReadRecommendations
 
-  const devices = usePolledResource(() => listDevices(apiClient, { pageSize: 1 }), { enabled: canReadDevices })
-  const monitoring = usePolledResource(() => fetchMonitoringSummary(apiClient), { enabled: canReadMonitoring })
+  // Aggregate, organization-wide KPIs come from one endpoint: the paginated
+  // module APIs below only return a page at a time, so they cannot answer
+  // "how many are open/active/pending across the whole organization"
+  // accurately. See docs/api/dashboard.md.
+  const overview = usePolledResource(() => fetchDashboardOverview(apiClient), { enabled: canReadDashboard })
+
+  // Detailed, permission-gated feeds still use their own module endpoints;
+  // they drive the recent-activity list and per-module tables, not the KPIs.
   const agents = usePolledResource(() => listAgents(apiClient), { enabled: canReadAgents })
   const incidents = usePolledResource(() => listIncidents(apiClient, { pageSize: 10 }), { enabled: canReadIncidents })
   const discoveryJobs = usePolledResource(() => listDiscoveryJobs(apiClient, { pageSize: 5 }), {
@@ -38,33 +45,38 @@ export function Dashboard() {
     enabled: canReadRecommendations,
   })
 
+  // Every resource that contributes visible dashboard content must be
+  // included here, not just the KPI-driving ones - otherwise the page can
+  // render "no recent activity" while discovery/recommendations are still
+  // loading in the background.
   const anyLoading =
-    (canReadDevices && devices.loading) ||
-    (canReadMonitoring && monitoring.loading) ||
+    (canReadDashboard && overview.loading) ||
     (canReadAgents && agents.loading) ||
-    (canReadIncidents && incidents.loading)
+    (canReadIncidents && incidents.loading) ||
+    (canReadDiscovery && discoveryJobs.loading) ||
+    (canReadRecommendations && recommendations.loading)
 
   const anyRefreshing =
-    devices.refreshing || monitoring.refreshing || agents.refreshing || incidents.refreshing ||
+    overview.refreshing || agents.refreshing || incidents.refreshing ||
     discoveryJobs.refreshing || recommendations.refreshing
 
   const lastUpdated = useMemo(() => {
-    const dates = [devices, monitoring, agents, incidents, discoveryJobs, recommendations]
+    const dates = [overview, agents, incidents, discoveryJobs, recommendations]
       .map((resource) => resource.lastUpdated)
       .filter((value): value is Date => value !== null)
     if (dates.length === 0) return null
     return new Date(Math.max(...dates.map((date) => date.getTime())))
-  }, [devices.lastUpdated, monitoring.lastUpdated, agents.lastUpdated, incidents.lastUpdated,
+  }, [overview.lastUpdated, agents.lastUpdated, incidents.lastUpdated,
       discoveryJobs.lastUpdated, recommendations.lastUpdated])
 
   function refreshAll() {
-    void devices.refresh()
-    void monitoring.refresh()
+    void overview.refresh()
     void agents.refresh()
     void incidents.refresh()
     void discoveryJobs.refresh()
     void recommendations.refresh()
   }
+
 
   const activity: ActivityItem[] = useMemo(() => {
     const items: ActivityItem[] = []
@@ -122,41 +134,58 @@ export function Dashboard() {
         {canReadDevices && (
           <KpiCard
             label="Total devices"
-            value={devices.error ? '—' : (devices.data?.total ?? '—')}
-            loading={devices.loading}
-            hint={devices.error ?? undefined}
+            value={overview.error ? '—' : (overview.data?.devices?.total ?? '—')}
+            loading={overview.loading}
+            hint={overview.error ?? undefined}
           />
         )}
         {canReadMonitoring && (
           <KpiCard
             label="Monitored targets"
-            value={monitoring.error ? '—' : (monitoring.data?.total_targets ?? '—')}
-            loading={monitoring.loading}
-            hint={monitoring.error ?? `${monitoring.data?.enabled_targets ?? 0} enabled`}
+            value={overview.error ? '—' : (overview.data?.monitoring?.total_targets ?? '—')}
+            loading={overview.loading}
+            hint={overview.error ?? `${overview.data?.monitoring?.enabled_targets ?? 0} enabled`}
           />
         )}
         {canReadAgents && (
           <KpiCard
             label="Active agents"
-            value={agents.error ? '—' : (agents.data?.filter((a) => a.status === 'active').length ?? '—')}
-            loading={agents.loading}
+            value={overview.error ? '—' : (overview.data?.agents?.active ?? '—')}
+            loading={overview.loading}
             tone="ok"
-            hint={agents.error ?? `${agents.data?.length ?? 0} enrolled`}
+            hint={overview.error ?? `${overview.data?.agents?.total ?? 0} enrolled`}
           />
         )}
         {canReadIncidents && (
           <KpiCard
             label="Open incidents"
             value={
-              incidents.error
+              overview.error
                 ? '—'
-                : (incidents.data?.items.filter((i) => i.status === 'open' || i.status === 'in_progress').length ?? '—')
+                : overview.data?.incidents
+                  ? overview.data.incidents.open + overview.data.incidents.in_progress
+                  : '—'
             }
-            loading={incidents.loading}
-            tone={
-              (incidents.data?.items.filter((i) => i.status === 'open').length ?? 0) > 0 ? 'danger' : 'ok'
-            }
-            hint={incidents.error ?? undefined}
+            loading={overview.loading}
+            tone={(overview.data?.incidents?.open ?? 0) > 0 ? 'danger' : 'ok'}
+            hint={overview.error ?? undefined}
+          />
+        )}
+        {canReadDiscovery && (
+          <KpiCard
+            label="Discovery jobs running"
+            value={overview.error ? '—' : (overview.data?.discovery?.running ?? '—')}
+            loading={overview.loading}
+            hint={overview.error ?? `${overview.data?.discovery?.total ?? 0} total`}
+          />
+        )}
+        {canReadRecommendations && (
+          <KpiCard
+            label="Pending recommendations"
+            value={overview.error ? '—' : (overview.data?.recommendations?.pending ?? '—')}
+            loading={overview.loading}
+            tone={(overview.data?.recommendations?.pending ?? 0) > 0 ? 'warn' : 'ok'}
+            hint={overview.error ?? `${overview.data?.recommendations?.total ?? 0} total`}
           />
         )}
       </div>
@@ -165,17 +194,17 @@ export function Dashboard() {
         {canReadMonitoring && (
           <section className="panel">
             <SectionHeader title="Health distribution" />
-            {monitoring.error ? (
-              <ErrorState message={monitoring.error} onRetry={() => void monitoring.refresh()} />
-            ) : monitoring.loading ? (
+            {overview.error ? (
+              <ErrorState message={overview.error} onRetry={() => void overview.refresh()} />
+            ) : overview.loading ? (
               <LoadingState />
-            ) : monitoring.data ? (
+            ) : overview.data?.monitoring ? (
               <HealthDistributionChart
-                healthy={monitoring.data.healthy}
-                degraded={monitoring.data.degraded}
-                unhealthy={monitoring.data.unhealthy}
-                offline={monitoring.data.offline}
-                unknown={monitoring.data.unknown}
+                healthy={overview.data.monitoring.healthy}
+                degraded={overview.data.monitoring.degraded}
+                unhealthy={overview.data.monitoring.unhealthy}
+                offline={overview.data.monitoring.offline}
+                unknown={overview.data.monitoring.unknown}
               />
             ) : null}
           </section>
@@ -191,7 +220,7 @@ export function Dashboard() {
         </section>
       </div>
 
-      {!canReadDevices && !canReadMonitoring && !canReadAgents && !canReadIncidents && (
+      {!canReadDashboard && (
         <EmptyState
           title="No dashboard data available"
           description="Your account does not have permission to view any operations summaries."

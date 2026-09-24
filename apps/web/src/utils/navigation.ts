@@ -1,7 +1,14 @@
 export type NavEntry = {
   path: string
   label: string
-  permission: string
+  /**
+   * Permission(s) required to see this entry. A single permission gates
+   * module-specific pages. The Dashboard aggregates several modules, so it
+   * uses an array: it is visible to any user who can read at least one of
+   * the operational resources it summarizes, rather than being tied to a
+   * single module's permission (see docs/ui/dashboard.md).
+   */
+  permission: string | string[]
 }
 
 /**
@@ -10,7 +17,11 @@ export type NavEntry = {
  * real authorization boundary regardless of what the UI shows.
  */
 export const NAV_ENTRIES: NavEntry[] = [
-  { path: '/', label: 'Dashboard', permission: 'devices:read' },
+  {
+    path: '/',
+    label: 'Dashboard',
+    permission: ['devices:read', 'monitoring:read', 'agents:read', 'incidents:read', 'discovery:read', 'recommendations:read'],
+  },
   { path: '/devices', label: 'Devices', permission: 'devices:read' },
   { path: '/monitoring', label: 'Monitoring', permission: 'monitoring:read' },
   { path: '/agents', label: 'Agents', permission: 'agents:read' },

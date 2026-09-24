@@ -102,9 +102,30 @@ export class ApiClient {
   }
 
   async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+    // A single internal controller drives the actual fetch abort signal so a
+    // caller-provided signal never disables the request timeout. Timeout and
+    // caller cancellation each abort this controller for a distinguishable
+    // reason, tracked below, so the error path can tell them apart instead of
+    // reporting every abort as a false "timeout".
     const controller = new AbortController()
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    let cancelled = false
+    const timer = setTimeout(() => {
+      controller.abort()
+    }, timeoutMs)
+
+    const callerSignal = options.signal
+    const onCallerAbort = () => {
+      cancelled = true
+      controller.abort()
+    }
+    if (callerSignal) {
+      if (callerSignal.aborted) {
+        onCallerAbort()
+      } else {
+        callerSignal.addEventListener('abort', onCallerAbort)
+      }
+    }
 
     const headers: Record<string, string> = { Accept: 'application/json' }
     const token = this.getToken()
@@ -118,6 +139,7 @@ export class ApiClient {
       const serialized = JSON.stringify(options.body)
       if (serialized.length > MAX_REQUEST_BYTES) {
         clearTimeout(timer)
+        callerSignal?.removeEventListener('abort', onCallerAbort)
         throw new ApiError(0, 'payload_too_large', 'Request payload exceeds the allowed size.')
       }
       headers['Content-Type'] = 'application/json'
@@ -130,17 +152,21 @@ export class ApiClient {
         method,
         headers,
         body,
-        signal: options.signal ?? controller.signal,
+        signal: controller.signal,
         credentials: 'omit',
       })
     } catch (error) {
-      clearTimeout(timer)
       if (error instanceof DOMException && error.name === 'AbortError') {
+        if (cancelled) {
+          throw new ApiError(0, 'cancelled', 'The request was cancelled.')
+        }
         throw new ApiError(0, 'timeout', 'The request timed out. Please try again.')
       }
       throw new ApiError(0, 'network_error', 'Unable to reach the API. Check your connection.')
+    } finally {
+      clearTimeout(timer)
+      callerSignal?.removeEventListener('abort', onCallerAbort)
     }
-    clearTimeout(timer)
 
     if (response.status === 204) {
       return undefined as T
