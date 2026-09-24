@@ -12,6 +12,7 @@ from .endpoints.remediation import router as remediation_router
 from .endpoints.incidents import router as incidents_router
 from .endpoints.inventory import router as inventory_router
 from .endpoints.monitoring import router as monitoring_router
+from .endpoints.agents import router as agents_router
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 router.include_router(health_router)
@@ -26,6 +27,7 @@ router.include_router(remediation_router)
 router.include_router(incidents_router)
 router.include_router(inventory_router)
 router.include_router(monitoring_router)
+router.include_router(agents_router)
 
 
 @router.get("/status")

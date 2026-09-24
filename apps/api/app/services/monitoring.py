@@ -86,6 +86,17 @@ class MonitoringService:
 
     def ingest(self, session, target, actor, values: dict):
         self._scope(target, actor)
+        return self._apply_ingest(session, target, actor.organization_id, actor.id, values)
+
+    def ingest_for_agent(self, session, target, organization_id, values: dict):
+        """Converge agent heartbeat telemetry through the same Phase 1L validation
+        and update path used by human-submitted telemetry, attributing the audit
+        event to the agent rather than a human actor."""
+        if target.organization_id != organization_id:
+            raise SecurityError("permission_denied", "Permission denied", 403)
+        return self._apply_ingest(session, target, organization_id, None, values)
+
+    def _apply_ingest(self, session, target, organization_id, actor_user_id, values: dict):
         if not target.enabled:
             raise SecurityError("monitoring_target_disabled", "Monitoring target is disabled", 409)
         now = datetime.now(timezone.utc)
@@ -95,7 +106,7 @@ class MonitoringService:
             raise SecurityError("invalid_timestamp", "Telemetry timestamps are invalid", 422)
         telemetry_values = dict(values)
         telemetry_values.pop("received_at", None)
-        telemetry = HealthTelemetry(organization_id=actor.organization_id, target_id=target.id,
+        telemetry = HealthTelemetry(organization_id=organization_id, target_id=target.id,
                                     device_id=target.device_id, received_at=received, **telemetry_values)
         previous_status = target.health_status
         previous_seen = target.last_seen_at
@@ -115,7 +126,7 @@ class MonitoringService:
             target.last_status_at = status_at
             target.health_status = values["health_status"]
         device = session.scalar(select(Device).where(
-            Device.id == target.device_id, Device.organization_id == actor.organization_id))
+            Device.id == target.device_id, Device.organization_id == organization_id))
         device_seen = device.last_seen_at if device is not None else None
         if device_seen is not None and device_seen.tzinfo is None:
             device_seen = device_seen.replace(tzinfo=timezone.utc)
@@ -124,8 +135,8 @@ class MonitoringService:
         details = values.get("details") or {}
         target.last_error_code = details.get("error_code") if isinstance(details, dict) else None
         session.add(telemetry)
-        record_security_event(session, event_type="health_telemetry_ingested", organization_id=actor.organization_id,
-                              actor_user_id=actor.id, action="create", result="success",
+        record_security_event(session, event_type="health_telemetry_ingested", organization_id=organization_id,
+                              actor_user_id=actor_user_id, action="create", result="success",
                               resource_type="health_telemetry", resource_id=str(telemetry.id))
         return self._commit(session, telemetry, "ingested")
 

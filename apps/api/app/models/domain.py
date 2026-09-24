@@ -38,6 +38,7 @@ from .enums import (
     UserStatus,
     RemediationPlanStatus, RemediationActionStatus, RemediationVerificationStatus,
     AssetType, DeviceCriticality,
+    AgentStatus,
 )
 
 
@@ -227,6 +228,81 @@ class HealthTelemetry(TimestampMixin, Base):
     organization: Mapped[Organization] = relationship(overlaps="health_telemetry")
     device: Mapped[Device] = relationship(overlaps="organization,health_telemetry,target")
     target: Mapped[MonitoringTarget] = relationship(overlaps="device,organization,health_telemetry")
+
+
+class Agent(TimestampMixin, Base):
+    __tablename__ = "agents"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_agents_id_organization"),
+        UniqueConstraint("organization_id", "device_id", name="uq_agents_org_device"),
+        UniqueConstraint("organization_id", "agent_name", name="uq_agents_org_name"),
+        ForeignKeyConstraint(["device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+                             name="fk_agents_device_org"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    agent_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[AgentStatus] = mapped_column(
+        Enum(AgentStatus, name="agent_status", values_callable=lambda enum: [item.value for item in enum]),
+        nullable=False, default=AgentStatus.PENDING, index=True
+    )
+    agent_version: Mapped[str | None] = mapped_column(String(100))
+    platform: Mapped[str] = mapped_column(String(100), nullable=False, default="windows")
+    enrolled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    last_ip_address: Mapped[str | None] = mapped_column(String(45))
+    last_error_code: Mapped[str | None] = mapped_column(String(100))
+    organization: Mapped[Organization] = relationship(
+        foreign_keys=[organization_id], overlaps="agents")
+    device: Mapped[Device] = relationship(
+        foreign_keys=[device_id], overlaps="organization,agents")
+    credentials: Mapped[list["AgentCredential"]] = relationship(
+        back_populates="agent", cascade="all, delete-orphan",
+        foreign_keys="AgentCredential.agent_id")
+
+
+class AgentEnrollmentToken(TimestampMixin, Base):
+    __tablename__ = "agent_enrollment_tokens"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_agent_enrollment_tokens_hash"),
+        UniqueConstraint("token_prefix", name="uq_agent_enrollment_tokens_prefix"),
+        ForeignKeyConstraint(["target_device_id", "organization_id"], ["devices.id", "devices.organization_id"],
+                             name="fk_agent_enrollment_tokens_device_org"),
+        Index("ix_agent_enrollment_tokens_org_expires", "organization_id", "expires_at"),
+    )
+    id: Mapped = uuid_pk()
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_prefix: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    target_device_id: Mapped[UUID | None] = mapped_column(nullable=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    max_uses: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AgentCredential(TimestampMixin, Base):
+    __tablename__ = "agent_credentials"
+    __table_args__ = (
+        UniqueConstraint("id", "organization_id", name="uq_agent_credentials_id_organization"),
+        UniqueConstraint("credential_hash", name="uq_agent_credentials_hash"),
+        UniqueConstraint("credential_prefix", name="uq_agent_credentials_prefix"),
+        ForeignKeyConstraint(["agent_id", "organization_id"], ["agents.id", "agents.organization_id"],
+                             name="fk_agent_credentials_agent_org"),
+    )
+    id: Mapped = uuid_pk()
+    agent_id: Mapped = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    credential_prefix: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    credential_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_ip: Mapped[str | None] = mapped_column(String(45))
+    agent: Mapped[Agent] = relationship(
+        back_populates="credentials", foreign_keys=[agent_id])
 
 
 class Site(TimestampMixin, Base):

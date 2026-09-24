@@ -13,3 +13,7 @@ class Collector(ABC):
     @abstractmethod
     def collect(self) -> dict[str, Any]:
         raise NotImplementedError
+
+    @staticmethod
+    def bounded(data: dict[str, Any], limit: int = 32) -> dict[str, Any]:
+        return dict(list(data.items())[:limit])

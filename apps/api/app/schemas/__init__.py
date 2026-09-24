@@ -55,6 +55,10 @@ from .monitoring import (
     MonitoringTargetCreate, MonitoringTargetRead, MonitoringTargetUpdate, MonitoringTargetPage,
     TelemetryCreate, TelemetryRead, TelemetryPage, MonitoringSummary, MonitoringPageMeta,
 )
+from .agent import (
+    AgentEnroll, AgentEnrollmentResponse, AgentHeartbeat, AgentRead, AgentRotateResponse,
+    AgentUpdate, EnrollmentTokenCreate, EnrollmentTokenRead,
+)
 
 __all__ = [
     "CurrentUserRead",
@@ -104,4 +108,6 @@ __all__ = [
     "SSIDCreate", "SSIDRead", "SSIDUpdate",
     "MonitoringTargetCreate", "MonitoringTargetRead", "MonitoringTargetUpdate", "MonitoringTargetPage",
     "TelemetryCreate", "TelemetryRead", "TelemetryPage", "MonitoringSummary", "MonitoringPageMeta",
+    "AgentEnroll", "AgentHeartbeat", "AgentRead", "AgentEnrollmentResponse", "AgentRotateResponse",
+    "AgentUpdate", "EnrollmentTokenCreate", "EnrollmentTokenRead",
 ]
