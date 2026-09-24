@@ -21,7 +21,12 @@ function AuthProbe() {
       <output aria-label="status">{status}</output>
       {user && <output aria-label="email">{user.email}</output>}
       {error && <div role="alert">{error}</div>}
-      <button type="button" onClick={() => void login('operator@example.com', 'correct-password')}>
+      <button
+        type="button"
+        onClick={() => {
+          void login('operator@example.com', 'correct-password').catch(() => undefined)
+        }}
+      >
         Login
       </button>
     </div>

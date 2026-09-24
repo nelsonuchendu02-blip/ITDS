@@ -80,6 +80,9 @@ function mockResources(
 describe('Dashboard', () => {
   afterEach(() => {
     mockUsePermission.mockReset()
+    for (const spy of refreshSpies) {
+      spy.mockClear()
+    }
   })
 
   it('renders KPIs sourced from the overview endpoint and refreshes all resources', () => {
