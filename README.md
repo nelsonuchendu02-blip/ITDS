@@ -4,7 +4,9 @@ IT Support Diagnostic System (ITDS) is a foundation for secure, modular support 
 
 ## Purpose
 
-This Phase 0 release focuses on the repository foundation and safe extensibility rather than production diagnostics or endpoint automation. The system is intentionally constrained to a clean backend/frontend structure, security baseline, and validation pipeline.
+ITDS is implemented in phased increments. The current repository state includes
+an operational backend API surface, a secure read-only endpoint-agent
+foundation, and a live-data operations dashboard frontend.
 
 ## System capabilities
 
@@ -24,8 +26,8 @@ Planned capabilities in future phases include:
 
 The repository separates responsibilities across application domains:
 
-- `apps/api` exposes the FastAPI backend and health endpoint
-- `apps/web` hosts a Vite + React + TypeScript frontend shell
+- `apps/api` exposes the FastAPI backend and versioned operational APIs
+- `apps/web` hosts a permission-aware Vite + React + TypeScript operations dashboard
 - `apps/agent` provides the Phase 1M read-only Windows endpoint agent foundation
 - `database` holds migration and seed structure for PostgreSQL support
 - `automation/powershell` defines standards for safe PowerShell automation
@@ -156,9 +158,8 @@ cd apps/web && npm install && npm run build
 
 ## Current development phase
 
-Phase 1A: persistence foundation. The ORM models, session lifecycle, and initial
-Alembic migration are present; application CRUD, authentication, monitoring,
-diagnostics, and remediation remain out of scope.
+Phase 1N: operations dashboard implementation on top of established backend,
+monitoring, incident, agent, diagnostics, and remediation foundations.
 
 ### Database validation
 
@@ -174,11 +175,10 @@ keys.
 
 ## Known limitations
 
-- No real-time monitoring implementation
-- No device discovery or endpoint automation
-- No CRUD, authentication, monitoring, diagnostics, or remediation workflows
-- No deployment infrastructure
-- No real user authentication or RBAC beyond baseline security documentation
+- No deployment infrastructure in this repository
+- Polling-based UI refresh (no websocket streaming layer yet)
+- Token lifecycle is session-memory only on the frontend (no refresh-token flow)
+- Production operations hardening and runbook automation are still iterative
 
 ## Recommended commit message
 
