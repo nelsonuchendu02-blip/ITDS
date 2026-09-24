@@ -59,6 +59,11 @@ from .agent import (
     AgentEnroll, AgentEnrollmentResponse, AgentHeartbeat, AgentRead, AgentRotateResponse,
     AgentUpdate, EnrollmentTokenCreate, EnrollmentTokenRead,
 )
+from .dashboard import (
+    DashboardAgentOverview, DashboardDeviceOverview, DashboardDiscoveryOverview,
+    DashboardIncidentOverview, DashboardMonitoringOverview, DashboardOverview,
+    DashboardRecommendationOverview,
+)
 
 __all__ = [
     "CurrentUserRead",
@@ -110,4 +115,7 @@ __all__ = [
     "TelemetryCreate", "TelemetryRead", "TelemetryPage", "MonitoringSummary", "MonitoringPageMeta",
     "AgentEnroll", "AgentHeartbeat", "AgentRead", "AgentEnrollmentResponse", "AgentRotateResponse",
     "AgentUpdate", "EnrollmentTokenCreate", "EnrollmentTokenRead",
+    "DashboardOverview", "DashboardDeviceOverview", "DashboardMonitoringOverview",
+    "DashboardAgentOverview", "DashboardIncidentOverview", "DashboardDiscoveryOverview",
+    "DashboardRecommendationOverview",
 ]
