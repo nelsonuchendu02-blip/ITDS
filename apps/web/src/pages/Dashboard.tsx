@@ -57,8 +57,11 @@ export function Dashboard() {
     (canReadRecommendations && recommendations.loading)
 
   const anyRefreshing =
-    overview.refreshing || agents.refreshing || incidents.refreshing ||
-    discoveryJobs.refreshing || recommendations.refreshing
+    (canReadDashboard && overview.refreshing) ||
+    (canReadAgents && agents.refreshing) ||
+    (canReadIncidents && incidents.refreshing) ||
+    (canReadDiscovery && discoveryJobs.refreshing) ||
+    (canReadRecommendations && recommendations.refreshing)
 
   const lastUpdated = useMemo(() => {
     const dates = [overview, agents, incidents, discoveryJobs, recommendations]
@@ -70,11 +73,11 @@ export function Dashboard() {
       discoveryJobs.lastUpdated, recommendations.lastUpdated])
 
   function refreshAll() {
-    void overview.refresh()
-    void agents.refresh()
-    void incidents.refresh()
-    void discoveryJobs.refresh()
-    void recommendations.refresh()
+    if (canReadDashboard) void overview.refresh()
+    if (canReadAgents) void agents.refresh()
+    if (canReadIncidents) void incidents.refresh()
+    if (canReadDiscovery) void discoveryJobs.refresh()
+    if (canReadRecommendations) void recommendations.refresh()
   }
 
 
