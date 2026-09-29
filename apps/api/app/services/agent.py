@@ -123,6 +123,7 @@ class AgentService:
             session.rollback()
             raise SecurityError("invalid_enrollment_token", "Invalid or expired enrollment token", 401)
         session.add_all([agent, credential])
+        session.flush()
         record_security_event(
             session, event_type="agent_enrolled", organization_id=token.organization_id, actor_user_id=None,
             action="enroll", result="success", resource_type="agent", resource_id=str(agent.id),
