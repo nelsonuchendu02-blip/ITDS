@@ -1,0 +1,7 @@
+# Build-time-only dependency for producing ITDSAgent.exe.
+#
+# This file is intentionally separate from apps/agent/requirements.txt:
+# PyInstaller is a packaging tool, not something the running agent imports,
+# so it must never ship inside the frozen executable or be required simply
+# to run/test the agent.
+pyinstaller==6.11.1
