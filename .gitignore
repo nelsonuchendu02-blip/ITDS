@@ -33,8 +33,18 @@ coverage/
 apps/web/vite.config.js
 apps/web/vite.config.d.ts
 
+# PyInstaller packaging output (apps/agent/build/build_exe.py) - generated,
+# not committed; only the build script and requirements are source.
+apps/agent/build/dist/
+apps/agent/build/work/
+apps/agent/build/*.spec
+
 # Temporary
 tmp/
+/.tmp-postgres-phase1o/
+/apps/agent/phase1o_enroll_test.py
+/apps/agent/phase1o_rotate_test.py
+/reset_phase1o_admin.py
 
 # IDE/project metadata
 .idea/
