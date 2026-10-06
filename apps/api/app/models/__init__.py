@@ -3,7 +3,7 @@
 from .base import Base, GUID, TimestampMixin
 from .domain import (
     AuditEvent, BootstrapState, Device, DiagnosticResult, DiagnosticRun, DiscoveryJob, DiscoveryResult, Escalation,
-    Incident, Organization, Recommendation, RepairAction, Role, User, UserRole,
+    Incident, Organization, Recommendation, RepairAction, Role, User, UserRole, UserSession,
     RootCauseAnalysis, RootCauseFinding, RemediationPlan, RemediationAction, RemediationVerification,
     Site, Network, Subnet, VLAN, WLAN, SSID, MonitoringTarget, HealthTelemetry,
     Agent, AgentEnrollmentToken, AgentCredential,
@@ -20,7 +20,7 @@ from .enums import (
 )
 
 __all__ = [
-    "Base", "GUID", "TimestampMixin", "Organization", "Role", "User", "UserRole",
+    "Base", "GUID", "TimestampMixin", "Organization", "Role", "User", "UserRole", "UserSession",
     "Device", "Site", "Network", "Subnet", "VLAN", "WLAN", "SSID", "DiscoveryJob", "DiscoveryResult", "Incident",
     "DiagnosticRun", "DiagnosticResult", "Recommendation",
     "RepairAction", "Escalation", "AuditEvent", "BootstrapState", "DeviceStatus", "DiagnosticRunStatus",

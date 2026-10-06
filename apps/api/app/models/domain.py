@@ -9,7 +9,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, TimestampMixin, uuid_pk
+from .base import Base, GUID, TimestampMixin, uuid_pk
 from .enums import (
     DeviceStatus,
     HealthStatus,
@@ -104,6 +104,50 @@ class User(TimestampMixin, Base):
     )
     organization: Mapped[Organization] = relationship(back_populates="users")
     roles: Mapped[list[Role]] = relationship(secondary="user_roles", back_populates="users")
+
+
+class UserSession(TimestampMixin, Base):
+    __tablename__ = "user_sessions"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "token_id",
+            name="uq_user_sessions_token_id",
+        ),
+        Index(
+            "ix_user_sessions_expires_at",
+            "expires_at",
+        ),
+    )
+
+    id: Mapped = uuid_pk()
+
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    token_id: Mapped[UUID] = mapped_column(
+        GUID(),
+        nullable=False,
+    )
+
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+    )
+
+    user: Mapped[User] = relationship()
+
+
+
+
 
 
 class Device(TimestampMixin, Base):
