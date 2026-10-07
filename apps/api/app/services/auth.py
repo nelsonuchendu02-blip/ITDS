@@ -1,27 +1,44 @@
-from uuid import UUID
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
+from pwdlib.exceptions import PwdlibError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from pwdlib.exceptions import PwdlibError
 
-from ..config import Settings
+from ..config import Settings, get_settings
 from ..exceptions import SecurityError
-from ..models import User, UserStatus
-from ..repositories import UserRepository
+from ..models import User, UserSession, UserStatus
+from ..repositories import UserRepository, UserSessionRepository
 from ..security.passwords import verify_dummy_password, verify_password
-from ..security.tokens import create_access_token
+from ..security.tokens import (
+    create_access_token,
+    get_access_token_expiration,
+)
 from .audit import record_security_event
 
 
 class AuthenticationService:
-    def __init__(self, repository: UserRepository | None = None) -> None:
+    def __init__(
+        self,
+        repository: UserRepository | None = None,
+        session_repository: UserSessionRepository | None = None,
+    ) -> None:
         self.repository = repository or UserRepository()
+        self.session_repository = session_repository or UserSessionRepository()
 
-    def authenticate(self, session: Session, *, email: str, password: str, settings: Settings | None = None) -> str:
+    def authenticate(
+        self,
+        session: Session,
+        *,
+        email: str,
+        password: str,
+        settings: Settings | None = None,
+    ) -> str:
         normalized_email = email.strip().lower()
         matching_users = self.repository.get_by_login(session, normalized_email)
         user = matching_users[0] if len(matching_users) == 1 else None
+
         try:
             valid_password = (
                 verify_password(password, user.password_hash)
@@ -30,6 +47,7 @@ class AuthenticationService:
             )
         except (PwdlibError, TypeError, ValueError):
             valid_password = verify_dummy_password(password)
+
         if user is None or not valid_password or user.status is not UserStatus.ACTIVE:
             record_security_event(
                 session,
@@ -41,25 +59,55 @@ class AuthenticationService:
                 metadata={"reason": "invalid_credentials"},
             )
             self._commit_audit(session)
-            raise SecurityError("invalid_credentials", "Invalid email or password", 401)
+            raise SecurityError(
+                "invalid_credentials",
+                "Invalid email or password",
+                401,
+            )
+
+        configured = settings or get_settings()
+        token_id = uuid4()
+        issued_at = datetime.now(timezone.utc)
+        expires_at = get_access_token_expiration(
+            issued_at=issued_at,
+            settings=configured,
+        )
+
         try:
-            token = create_access_token(user.id, settings)
-        except ValueError as exc:
+            token = create_access_token(
+                user.id,
+                token_id=token_id,
+                issued_at=issued_at,
+                expires_at=expires_at,
+                settings=configured,
+            )
+
+            user_session = UserSession(
+                user_id=user.id,
+                token_id=token_id,
+                expires_at=expires_at,
+            )
+            self.session_repository.create(session, user_session)
+
+            record_security_event(
+                session,
+                event_type="authentication",
+                organization_id=user.organization_id,
+                actor_user_id=user.id,
+                action="login",
+                result="success",
+            )
+
+            session.commit()
+            return token
+
+        except (ValueError, SQLAlchemyError) as exc:
+            session.rollback()
             raise SecurityError(
                 "authentication_unavailable",
                 "Authentication is temporarily unavailable",
                 503,
             ) from exc
-        record_security_event(
-            session,
-            event_type="authentication",
-            organization_id=user.organization_id,
-            actor_user_id=user.id,
-            action="login",
-            result="success",
-        )
-        self._commit_audit(session)
-        return token
 
     @staticmethod
     def _commit_audit(session: Session) -> None:
@@ -94,4 +142,8 @@ class AuthenticationService:
             return user
         except IntegrityError as exc:
             session.rollback()
-            raise SecurityError("user_creation_failed", "User could not be created", 409) from exc
+            raise SecurityError(
+                "user_creation_failed",
+                "User could not be created",
+                409,
+            ) from exc

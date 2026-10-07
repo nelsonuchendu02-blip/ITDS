@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+﻿from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,7 +14,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.main import app
 from app.models import AssetType, AuditEvent, Base, Device, Organization, Role, Site, User
-from app.security.tokens import create_access_token
+from auth_helpers import create_test_access_token
 
 # (kind, path) pairs covering every Phase 1K inventory route family.
 RESOURCE_ROUTES = (
@@ -80,10 +80,10 @@ def inventory_context(monkeypatch: pytest.MonkeyPatch) -> Iterator[InventoryCont
         session.commit()
         context = InventoryContext(
             factory,
-            create_access_token(admin.id),
-            create_access_token(viewer.id),
-            create_access_token(technician.id),
-            create_access_token(other_admin.id),
+            create_test_access_token(session, admin.id),
+            create_test_access_token(session, viewer.id),
+            create_test_access_token(session, technician.id),
+            create_test_access_token(session, other_admin.id),
             str(org.id),
             str(other_org.id),
             str(other_site.id),
@@ -470,3 +470,5 @@ def test_inventory_migration_head_and_downgrade_upgrade_lifecycle(
     finally:
         engine.dispose()
         get_settings.cache_clear()
+
+

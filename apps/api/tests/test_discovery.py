@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+﻿from collections.abc import Iterator
 from dataclasses import dataclass
 
 import pytest
@@ -23,7 +23,7 @@ from app.models import (
     User,
 )
 from app.security.passwords import hash_password
-from app.security.tokens import create_access_token
+from auth_helpers import create_test_access_token
 from app.schemas import DiscoveryJobCreate, DiscoveryJobRead, DiscoveryResultRead
 from app.services.discovery import DiscoveryService
 
@@ -122,10 +122,10 @@ def discovery_context(monkeypatch: pytest.MonkeyPatch) -> Iterator[DiscoveryCont
         session.commit()
         context = DiscoveryContext(
             session_factory=session_factory,
-            admin_token=create_access_token(admin.id),
-            support_token=create_access_token(support.id),
-            viewer_token=create_access_token(viewer.id),
-            other_admin_token=create_access_token(other_admin.id),
+            admin_token=create_test_access_token(session, admin.id),
+            support_token=create_test_access_token(session, support.id),
+            viewer_token=create_test_access_token(session, viewer.id),
+            other_admin_token=create_test_access_token(session, other_admin.id),
             job_id=str(job.id),
             other_job_id=str(other_job.id),
             result_device_id=str(matched_device.id),
@@ -371,3 +371,5 @@ def test_discovery_schemas_exclude_server_controlled_fields() -> None:
     assert set(DiscoveryJobCreate.model_fields) == {"provider", "target"}
     assert set(DiscoveryJobRead.model_fields) >= {"status", "organization_id", "created_by_user_id"}
     assert set(DiscoveryResultRead.model_fields) >= {"organization_id", "discovery_job_id"}
+
+

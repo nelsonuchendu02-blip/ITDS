@@ -1,4 +1,4 @@
-"""add user sessions
+﻿"""add user sessions
 
 Revision ID: 15b9c1c2b05b
 Revises: b9d0e1f2a3b4
@@ -52,13 +52,13 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("(CURRENT_TIMESTAMP)"),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("(CURRENT_TIMESTAMP)"),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(

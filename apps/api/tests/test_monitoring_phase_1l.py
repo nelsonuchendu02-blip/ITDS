@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+﻿from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -13,7 +13,7 @@ from app.schemas.monitoring import TelemetryCreate
 from app.services.monitoring import MonitoringService
 from app.main import app
 from app.db import get_db
-from app.security.tokens import create_access_token
+from auth_helpers import create_test_access_token
 from app.config import get_settings
 from alembic import command
 from alembic.config import Config
@@ -50,7 +50,9 @@ def api_context(monkeypatch):
         device = Device(organization=org, hostname="api-device", device_type="server", operating_system="Linux")
         session.add_all([org, admin, viewer, device])
         session.commit()
-        ids = (admin.id, viewer.id, device.id)
+        admin_token = create_test_access_token(session, admin.id)
+        viewer_token = create_test_access_token(session, viewer.id)
+        ids = (admin.id, viewer.id, device.id, admin_token, viewer_token)
     def override():
         with factory() as session:
             yield session
@@ -60,9 +62,9 @@ def api_context(monkeypatch):
 
 
 def test_api_auth_rbac_lifecycle_and_isolation(api_context):
-    client, (admin_id, viewer_id, device_id) = api_context
-    admin = {"Authorization": f"Bearer {create_access_token(admin_id)}"}
-    viewer = {"Authorization": f"Bearer {create_access_token(viewer_id)}"}
+    client, (admin_id, viewer_id, device_id, admin_token, viewer_token) = api_context
+    admin = {"Authorization": f"Bearer {admin_token}"}
+    viewer = {"Authorization": f"Bearer {viewer_token}"}
     payload = {"device_id": str(device_id), "check_interval_seconds": 60, "offline_after_seconds": 120}
     assert client.get("/api/v1/monitoring/targets").status_code == 401
     assert client.post("/api/v1/monitoring/targets", json=payload, headers=viewer).status_code == 403
@@ -234,3 +236,7 @@ def test_fresh_sqlite_migration_lifecycle(monkeypatch):
     command.downgrade(config, "a7b8c9d0e1f2")
     assert database.exists()
     database.unlink()
+
+
+
+

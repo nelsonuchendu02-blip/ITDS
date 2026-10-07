@@ -1,4 +1,4 @@
-from uuid import UUID
+﻿from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +19,7 @@ from app.models import (
 )
 from app.remediation.catalog import validate_action
 from app.security.passwords import hash_password
-from app.security.tokens import create_access_token
+from auth_helpers import create_test_access_token
 from app.services.remediation import RemediationService
 
 
@@ -161,12 +161,16 @@ def remediation_api(monkeypatch):
         )
         session.add_all(recommendations + [other_recommendation])
         session.commit()
+        admin_token = create_test_access_token(session, admin.id)
+        technician_token = create_test_access_token(session, technician.id)
+        viewer_token = create_test_access_token(session, viewer.id)
+        other_token = create_test_access_token(session, other_admin.id)
         values = {
             "factory": factory,
-            "admin_token": create_access_token(admin.id),
-            "technician_token": create_access_token(technician.id),
-            "viewer_token": create_access_token(viewer.id),
-            "other_token": create_access_token(other_admin.id),
+            "admin_token": admin_token,
+            "technician_token": technician_token,
+            "viewer_token": viewer_token,
+            "other_token": other_token,
             "recommendation_id": str(recommendations[0].id),
             "second_recommendation_id": str(recommendations[1].id),
             "other_recommendation_id": str(other_recommendation.id),
@@ -483,3 +487,5 @@ def test_invalid_action_parameters_fail_safely_and_are_audited(remediation_api):
             AuditEvent.resource_id == plan["id"], AuditEvent.action == "plan_execution_failed"))
         assert event is not None
         assert event.result == "failure"
+
+

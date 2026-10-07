@@ -114,12 +114,7 @@ class UserSession(TimestampMixin, Base):
             "token_id",
             name="uq_user_sessions_token_id",
         ),
-        Index(
-            "ix_user_sessions_expires_at",
-            "expires_at",
-        ),
     )
-
     id: Mapped = uuid_pk()
 
     user_id: Mapped[UUID] = mapped_column(

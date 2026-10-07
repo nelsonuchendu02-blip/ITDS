@@ -1,7 +1,7 @@
 from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
-
 import jwt
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ...db import get_db
 from ...exceptions import SecurityError
 from ...models import User, UserStatus
-from ...repositories import UserRepository
+from ...repositories import UserRepository, UserSessionRepository
 from ...security.tokens import decode_access_token
 from ...permissions import has_cross_organization_permission
 from ...services.authorization import has_permission, has_role, user_permissions
@@ -24,17 +24,30 @@ def get_current_user(
 ) -> User:
     if not token:
         raise SecurityError("authentication_required", "Authentication is required", 401)
+
     try:
-        user_id = decode_access_token(token)
+        claims = decode_access_token(token)
     except (jwt.InvalidTokenError, ValueError):
         raise SecurityError("invalid_token", "Invalid authentication token", 401) from None
-    user = UserRepository().get_by_id(session, user_id)
+
+    user_session = UserSessionRepository().get_active_by_token_id(
+        session,
+        token_id=claims.token_id,
+        now=datetime.now(timezone.utc),
+    )
+
+    if user_session is None or user_session.user_id != claims.subject:
+        raise SecurityError("invalid_token", "Invalid authentication token", 401)
+
+    user = UserRepository().get_by_id(session, claims.subject)
+
     if user is None:
         raise SecurityError("invalid_token", "Invalid authentication token", 401)
+
     if user.status is not UserStatus.ACTIVE:
         raise SecurityError("account_inactive", "Account is inactive", 401)
-    return user
 
+    return user
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 

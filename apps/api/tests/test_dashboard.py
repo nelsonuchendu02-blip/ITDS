@@ -1,4 +1,4 @@
-"""Phase 1N dashboard aggregation endpoint tests.
+﻿"""Phase 1N dashboard aggregation endpoint tests.
 
 Covers organization-scoped aggregate accuracy, permission-aware section
 visibility, and cross-organization isolation for GET /api/v1/dashboard/overview.
@@ -31,7 +31,7 @@ from app.models import (
     Role,
     User,
 )
-from app.security.tokens import create_access_token
+from auth_helpers import create_test_access_token
 
 
 @dataclass
@@ -109,9 +109,9 @@ def dashboard_context(monkeypatch: pytest.MonkeyPatch) -> Iterator[DashboardCont
 
         context = DashboardContext(
             session_factory=session_factory,
-            admin_token=create_access_token(admin.id),
-            viewer_only_devices_token=create_access_token(limited.id),
-            other_org_token=create_access_token(other_admin.id),
+            admin_token=create_test_access_token(session, admin.id),
+            viewer_only_devices_token=create_test_access_token(session, limited.id),
+            other_org_token=create_test_access_token(session, other_admin.id),
         )
 
     def override_get_db():
@@ -182,3 +182,5 @@ def test_overview_requires_authentication(dashboard_context):
     client = TestClient(app)
     response = client.get("/api/v1/dashboard/overview")
     assert response.status_code == 401
+
+

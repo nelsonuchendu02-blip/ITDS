@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,7 +16,7 @@ from sqlalchemy.pool import StaticPool
 from app.main import app
 from app.config import get_settings
 from app.db import get_db
-from app.security.tokens import create_access_token
+from auth_helpers import create_test_access_token
 from app.models import AuditEvent, Base, Device, EscalationStatus, Incident, IncidentStatus, Organization, Role, User
 from app.exceptions import SecurityError
 from app.schemas import IncidentCreate
@@ -56,8 +56,12 @@ def http_context(monkeypatch: pytest.MonkeyPatch) -> Iterator[HttpContext]:
         session.add_all([org, other_org, admin, technician, other, device, other_device])
         session.commit()
         context = HttpContext(
-            session_factory, create_access_token(admin.id), create_access_token(technician.id),
-            create_access_token(other.id), str(device.id), str(other_device.id),
+            session_factory,
+            create_test_access_token(session, admin.id),
+            create_test_access_token(session, technician.id),
+            create_test_access_token(session, other.id),
+            str(device.id),
+            str(other_device.id),
         )
     def override_get_db():
         with session_factory() as session:
@@ -329,3 +333,7 @@ def test_phase_1k_migration_schema_and_lifecycle(tmp_path, monkeypatch):
     finally:
         engine.dispose()
         get_settings.cache_clear()
+
+
+
+

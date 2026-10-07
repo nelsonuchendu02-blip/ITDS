@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+﻿from collections.abc import Iterator
 from dataclasses import dataclass
 
 import pytest
@@ -12,7 +12,7 @@ from app.db import get_db
 from app.main import app
 from app.models import AuditEvent, Base, Device, DeviceStatus, Organization, Role, User
 from app.security.passwords import hash_password
-from app.security.tokens import create_access_token
+from auth_helpers import create_test_access_token
 from app.schemas import DeviceManagementCreate, DeviceManagementUpdate
 
 
@@ -106,10 +106,10 @@ def device_context(monkeypatch: pytest.MonkeyPatch) -> Iterator[DeviceTestContex
         session.commit()
         context = DeviceTestContext(
             session_factory=session_factory,
-            admin_token=create_access_token(admin.id),
-            viewer_token=create_access_token(viewer.id),
-            technician_token=create_access_token(technician.id),
-            other_admin_token=create_access_token(other_admin.id),
+            admin_token=create_test_access_token(session, admin.id),
+            viewer_token=create_test_access_token(session, viewer.id),
+            technician_token=create_test_access_token(session, technician.id),
+            other_admin_token=create_test_access_token(session, other_admin.id),
             device_id=str(device.id),
             other_device_id=str(other_device.id),
             organization_id=str(organization.id),
@@ -438,3 +438,5 @@ def _assert_device_audit(
     assert event.result == "success"
     assert event.resource_type == "device"
     assert event.event_metadata["target_device_id"] == device_id
+
+

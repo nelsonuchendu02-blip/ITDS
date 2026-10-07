@@ -90,6 +90,51 @@ def test_authentication_token_and_current_user(auth_session, monkeypatch: pytest
     assert event is not None
     assert event.event_metadata is None
 
+def test_revoked_session_rejects_valid_token(auth_session) -> None:
+    organization = Organization(name="Example")
+    role = Role(name="viewer", organization=organization)
+    user = User(
+        organization=organization,
+        email="admin@example.test",
+        display_name="Admin",
+        password_hash=hash_password("secret-password"),
+    )
+    user.roles.append(role)
+    auth_session.add_all([organization, role, user])
+    auth_session.commit()
+
+    service = AuthenticationService()
+    token = service.authenticate(
+        auth_session,
+        email="admin@example.test",
+        password="secret-password",
+    )
+
+    decoded = decode_access_token(token)
+
+    revoked = service.session_repository.revoke_by_token_id(
+        auth_session,
+        token_id=decoded.token_id,
+        revoked_at=datetime.now(timezone.utc),
+    )
+    assert revoked is True
+    auth_session.commit()
+
+    def override_get_db():
+        yield auth_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        response = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        print("REVOKED SESSION RESPONSE:", response.json())
+        assert response.status_code == 401
+    finally:
+        app.dependency_overrides.clear()
+
 
 def test_authentication_failures_are_generic(auth_session) -> None:
     organization = Organization(name="Example")
@@ -176,8 +221,13 @@ def test_jwt_claims_and_validation(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("JWT_AUDIENCE", "itds-test-client")
     get_settings.cache_clear()
     subject = uuid4()
-    token = create_access_token(subject)
-    assert decode_access_token(token) == subject
+    token_id = uuid4()
+    token = create_access_token(subject, token_id=token_id)
+
+    decoded = decode_access_token(token)
+    assert decoded.subject == subject
+    assert decoded.token_id == token_id
+
     claims = jwt.decode(
         token,
         "test-secret-" + "x" * 32,
