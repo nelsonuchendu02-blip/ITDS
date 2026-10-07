@@ -45,3 +45,22 @@ class UserSessionRepository:
             user_session.revoked_at = revoked_at
 
         return True
+
+    def revoke_all_by_user_id(
+        self,
+        session: Session,
+        *,
+        user_id: UUID,
+        revoked_at: datetime,
+    ) -> int:
+        user_sessions = session.scalars(
+            select(UserSession).where(
+                UserSession.user_id == user_id,
+                UserSession.revoked_at.is_(None),
+            )
+        ).all()
+
+        for user_session in user_sessions:
+            user_session.revoked_at = revoked_at
+
+        return len(user_sessions)

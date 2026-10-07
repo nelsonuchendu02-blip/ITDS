@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from ....api.dependencies.auth import CurrentUser, get_current_user
 from ....db import get_db
 from ....permissions import permissions_for_roles
-from ....schemas import CurrentUserRead, TokenResponse
+from ....schemas import ChangePasswordRequest, CurrentUserRead, TokenResponse
 from ....services.auth import AuthenticationService
 from ....services.authorization import user_role_names
 
@@ -23,6 +23,20 @@ def issue_token(
         password=form_data.password,
     )
     return TokenResponse(access_token=token)
+
+
+@router.post("/change-password", status_code=204)
+def change_password(
+    request: ChangePasswordRequest,
+    user: CurrentUser,
+    session: Session = Depends(get_db),
+) -> None:
+    AuthenticationService().change_password(
+        session,
+        user=user,
+        current_password=request.current_password,
+        new_password=request.new_password,
+    )
 
 
 @router.get("/me", response_model=CurrentUserRead)

@@ -10,7 +10,7 @@ from ..config import Settings, get_settings
 from ..exceptions import SecurityError
 from ..models import User, UserSession, UserStatus
 from ..repositories import UserRepository, UserSessionRepository
-from ..security.passwords import verify_dummy_password, verify_password
+from ..security.passwords import hash_password, verify_dummy_password, verify_password
 from ..security.tokens import (
     create_access_token,
     get_access_token_expiration,
@@ -109,6 +109,100 @@ class AuthenticationService:
                 503,
             ) from exc
 
+    def change_password(
+        self,
+        session: Session,
+        *,
+        user: User,
+        current_password: str,
+        new_password: str,
+    ) -> None:
+        if not user.password_hash:
+            raise SecurityError(
+                "password_change_unavailable",
+                "Password change is unavailable for this account",
+                409,
+            )
+
+        try:
+            current_password_valid = verify_password(
+                current_password,
+                user.password_hash,
+            )
+        except (PwdlibError, TypeError, ValueError):
+            current_password_valid = False
+
+        if not current_password_valid:
+            record_security_event(
+                session,
+                event_type="authentication",
+                organization_id=user.organization_id,
+                actor_user_id=user.id,
+                action="change_password",
+                result="failure",
+                metadata={"reason": "invalid_current_password"},
+            )
+            self._commit_audit(session)
+            raise SecurityError(
+                "invalid_current_password",
+                "Current password is incorrect",
+                401,
+            )
+
+        try:
+            password_reused = verify_password(
+                new_password,
+                user.password_hash,
+            )
+        except (PwdlibError, TypeError, ValueError):
+            password_reused = False
+
+        if password_reused:
+            record_security_event(
+                session,
+                event_type="authentication",
+                organization_id=user.organization_id,
+                actor_user_id=user.id,
+                action="change_password",
+                result="failure",
+                metadata={"reason": "password_reuse"},
+            )
+            self._commit_audit(session)
+            raise SecurityError(
+                "password_reuse",
+                "New password must be different from the current password",
+                400,
+            )
+
+        now = datetime.now(timezone.utc)
+
+        try:
+            user.password_hash = hash_password(new_password)
+
+            self.session_repository.revoke_all_by_user_id(
+                session,
+                user_id=user.id,
+                revoked_at=now,
+            )
+
+            record_security_event(
+                session,
+                event_type="authentication",
+                organization_id=user.organization_id,
+                actor_user_id=user.id,
+                action="change_password",
+                result="success",
+            )
+
+            session.commit()
+
+        except (PwdlibError, ValueError, SQLAlchemyError) as exc:
+            session.rollback()
+            raise SecurityError(
+                "password_change_unavailable",
+                "Password change is temporarily unavailable",
+                503,
+            ) from exc
     @staticmethod
     def _commit_audit(session: Session) -> None:
         try:

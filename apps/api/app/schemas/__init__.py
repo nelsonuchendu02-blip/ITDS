@@ -21,7 +21,7 @@ from .diagnostics import (
     DiagnosticRunPage, DiagnosticRunRead,
 )
 from .organization import OrganizationCreate, OrganizationRead
-from .auth import TokenRequest, TokenResponse
+from .auth import ChangePasswordRequest, TokenRequest, TokenResponse
 from .user import CurrentUserRead, UserRead
 from .management import (
     AuditEventPage,
@@ -84,6 +84,7 @@ __all__ = [
     "DiagnosticRunCreate", "DiagnosticRunPage", "DiagnosticRunRead",
     "OrganizationCreate",
     "OrganizationRead",
+    "ChangePasswordRequest",
     "TokenRequest",
     "TokenResponse",
     "UserRead",

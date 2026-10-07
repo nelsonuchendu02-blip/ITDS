@@ -13,13 +13,13 @@ from app.config import Settings, validate_authentication_configuration
 from app.db import get_db
 from app.exceptions import SecurityError
 from app.main import app
-from app.models import AuditEvent, Base, BootstrapState, Organization, Role, User, UserStatus
+from app.models import AuditEvent, Base, BootstrapState, Organization, Role, User, UserSession, UserStatus
 from app.permissions import ROLE_PERMISSIONS
 from app.api.dependencies.auth import ensure_organization_scope
 from app.security.passwords import hash_password, verify_password
 from app.security.tokens import create_access_token, decode_access_token
 from app.services.auth import AuthenticationService
-
+from auth_helpers import create_test_access_token
 
 @pytest.fixture
 def auth_session(monkeypatch: pytest.MonkeyPatch):
@@ -371,3 +371,221 @@ def test_bootstrap_is_atomic_and_single_use(monkeypatch: pytest.MonkeyPatch) -> 
     with Session() as session:
         assert session.scalar(select(User.id)) is None
         assert session.scalar(select(BootstrapState.id)) is None
+
+def test_change_password_requires_authentication() -> None:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+
+    def override_get_db():
+        with Session() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        response = TestClient(app).post(
+            "/api/v1/auth/change-password",
+            json={
+                "current_password": "secret-password",
+                "new_password": "new-secret-password",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "authentication_required"
+
+def test_change_password_success_revokes_existing_sessions(auth_session) -> None:
+    organization = Organization(name="Example")
+    role = Role(name="viewer", organization=organization)
+    user = User(
+        organization=organization,
+        email="password-change@example.test",
+        display_name="Password Change User",
+        password_hash=hash_password("secret-password"),
+    )
+    user.roles.append(role)
+    auth_session.add_all([organization, role, user])
+    auth_session.commit()
+
+    first_token = create_test_access_token(auth_session, user.id)
+    second_token = create_test_access_token(auth_session, user.id)
+
+    def override_get_db():
+        yield auth_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/v1/auth/change-password",
+            headers={"Authorization": f"Bearer {first_token}"},
+            json={
+                "current_password": "secret-password",
+                "new_password": "new-secret-password",
+            },
+        )
+
+        assert response.status_code == 204
+        assert response.content == b""
+    finally:
+        app.dependency_overrides.clear()
+
+    assert user.password_hash is not None
+    assert user.password_hash != "new-secret-password"
+    assert verify_password("new-secret-password", user.password_hash)
+    assert not verify_password("secret-password", user.password_hash)
+
+    sessions = auth_session.scalars(
+        select(UserSession).where(UserSession.user_id == user.id)
+    ).all()
+
+    assert len(sessions) == 2
+    assert all(user_session.revoked_at is not None for user_session in sessions)
+
+    success_event = auth_session.scalar(
+        select(AuditEvent)
+        .where(
+            AuditEvent.actor_user_id == user.id,
+            AuditEvent.action == "change_password",
+            AuditEvent.result == "success",
+        )
+        .order_by(AuditEvent.created_at.desc())
+    )
+
+    assert success_event is not None
+    assert success_event.event_metadata is None
+
+
+def test_change_password_rejects_invalid_current_password(auth_session) -> None:
+    organization = Organization(name="Example")
+    role = Role(name="viewer", organization=organization)
+    user = User(
+        organization=organization,
+        email="password-change-failure@example.test",
+        display_name="Password Change Failure User",
+        password_hash=hash_password("secret-password"),
+    )
+    user.roles.append(role)
+    auth_session.add_all([organization, role, user])
+    auth_session.commit()
+
+    token = create_test_access_token(auth_session, user.id)
+
+    def override_get_db():
+        yield auth_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/v1/auth/change-password",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "current_password": "wrong-current-password",
+                "new_password": "new-secret-password",
+            },
+        )
+
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "invalid_current_password"
+    finally:
+        app.dependency_overrides.clear()
+
+    assert user.password_hash is not None
+    assert verify_password("secret-password", user.password_hash)
+    assert not verify_password("new-secret-password", user.password_hash)
+
+    session_record = auth_session.scalar(
+        select(UserSession).where(UserSession.user_id == user.id)
+    )
+
+    assert session_record is not None
+    assert session_record.revoked_at is None
+
+    failure_event = auth_session.scalar(
+        select(AuditEvent)
+        .where(
+            AuditEvent.actor_user_id == user.id,
+            AuditEvent.action == "change_password",
+            AuditEvent.result == "failure",
+        )
+        .order_by(AuditEvent.created_at.desc())
+    )
+
+    assert failure_event is not None
+    assert failure_event.event_metadata == {
+        "reason": "invalid_current_password",
+    }
+
+    metadata_text = str(failure_event.event_metadata)
+    assert "wrong-current-password" not in metadata_text
+    assert "new-secret-password" not in metadata_text
+
+def test_change_password_rejects_password_reuse(auth_session) -> None:
+    organization = Organization(name="Example")
+    role = Role(name="viewer", organization=organization)
+    user = User(
+        organization=organization,
+        email="password-reuse@example.test",
+        display_name="Password Reuse User",
+        password_hash=hash_password("secret-password"),
+    )
+    user.roles.append(role)
+    auth_session.add_all([organization, role, user])
+    auth_session.commit()
+
+    token = create_test_access_token(auth_session, user.id)
+
+    def override_get_db():
+        yield auth_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/v1/auth/change-password",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "current_password": "secret-password",
+                "new_password": "secret-password",
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "password_reuse"
+    finally:
+        app.dependency_overrides.clear()
+
+    assert user.password_hash is not None
+    assert verify_password("secret-password", user.password_hash)
+
+    session_record = auth_session.scalar(
+        select(UserSession).where(UserSession.user_id == user.id)
+    )
+
+    assert session_record is not None
+    assert session_record.revoked_at is None
+
+    reuse_event = auth_session.scalar(
+        select(AuditEvent)
+        .where(
+            AuditEvent.actor_user_id == user.id,
+            AuditEvent.action == "change_password",
+            AuditEvent.result == "failure",
+        )
+        .order_by(AuditEvent.created_at.desc())
+    )
+
+    assert reuse_event is not None
+    assert reuse_event.event_metadata == {
+        "reason": "password_reuse",
+    }
