@@ -26,9 +26,9 @@ class Settings(BaseSettings):
     jwt_secret: str | None = None
     jwt_algorithm: str = "HS256"
     jwt_access_token_minutes: int = 15
+    password_reset_token_ttl_minutes: int = 30
     jwt_issuer: str | None = None
     jwt_audience: str | None = None
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

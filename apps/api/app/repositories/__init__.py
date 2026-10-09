@@ -11,6 +11,7 @@ from .role import RoleRepository
 from .user import UserRepository
 from .monitoring import MonitoringRepository
 from .session import UserSessionRepository
+from .password_reset_tokens import PasswordResetTokenRepository
 
 __all__ = [
     "AuditRepository",
@@ -25,4 +26,5 @@ __all__ = [
     "UserRepository",
     "MonitoringRepository",
     "UserSessionRepository",
+    "PasswordResetTokenRepository",
 ]
