@@ -54,6 +54,10 @@ class PasswordResetService:
         The caller should return the same generic response regardless of
         whether the account exists.
         """
+        # Do not create a token that cannot be delivered.
+        if self.delivery is None:
+            return None
+
         normalized_email = email.strip().lower()
         matching_users = self.repository.get_by_login(
             session,
